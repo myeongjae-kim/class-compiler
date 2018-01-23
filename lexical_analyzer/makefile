@@ -86,55 +86,55 @@ compb: y.tab.o lex.yy.o printtoken.o pprint.o symtab.o codegenb.o  genasm.o
            codegenb.o genasm.o
 
 lexandr.o: lexandr.c token.h lexan.h
-	cc -c lexandr.c
+	cc -g -c lexandr.c
 
 lexanl.o: lexanl.c token.h lexan.h
-	cc -c lexanl.c
+	cc -g -c lexanl.c
 
 lex1.o: lex1.c token.h lexan.h
-	cc -c lex1.c
+	cc -g -c lex1.c
 
 lexanc.o: lexanc.c token.h lexan.h
-	cc -c lexanc.c
+	cc -g -c lexanc.c
 
 scanner.o: scanner.c token.h lexan.h
-	cc -c scanner.c
+	cc -g -c scanner.c
 
 printtoken.o: printtoken.c token.h
-	cc -c printtoken.c
+	cc -g -c printtoken.c
 
 symtab.o: symtab.c token.h symtab.h
-	cc -c symtab.c
+	cc -g -c symtab.c
 
 pars1c.o: pars1c.c lexan.h token.h symtab.h parse.h
-	cc -c pars1c.c -o pars1c.o
+	cc -g -c pars1c.c -o pars1c.o
 
 parsc.o: parsc.c lexan.h token.h symtab.h parse.h
-	cc -c parsc.c
+	cc -g -c parsc.c
 
 pprint.o: pprint.c token.h
-	cc -c pprint.c
+	cc -g -c pprint.c
 
 genasm.o: genasm.c token.h symtab.h genasm.h
-	cc -c genasm.c
+	cc -g -c genasm.c
 
 codgen.o: codgen.c token.h symtab.h genasm.h
-	cc -c codgen.c
+	cc -g -c codgen.c
 
 codegen.o: codegen.c token.h symtab.h genasm.h
-	cc -c codegen.c
+	cc -g -c codegen.c
 
 codegenb.o: codegenb.c token.h symtab.h genasm.h
-	cc -c codegenb.c
+	cc -g -c codegenb.c
 
 lex.yy.o: lex.yy.c
-	cc -c lex.yy.c
+	cc -g -c lex.yy.c
 
 lex.yy.c: lexan.l token.h
 	lex lexan.l
 
 lex2.yy.o: lex2.yy.c
-	cc -c lex2.yy.c
+	cc -g -c lex2.yy.c
 
 lex2.yy.c: lex2.l token.h lexan.h
 	lex -t lex2.l | cat >lex2.yy.c
@@ -143,10 +143,10 @@ y.tab.c: parse.y token.h parse.h symtab.h lexan.h
 	yacc parse.y
 
 y.tab.o: y.tab.c
-	cc -c y.tab.c
+	cc -g -c y.tab.c
 
 pars1.tab.c: pars1.y token.h parse.h symtab.h lexan.h
 	yacc -b pars1 pars1.y
 
 pars1.tab.o: pars1.tab.c
-	cc -c pars1.tab.c
+	cc -g -c pars1.tab.c

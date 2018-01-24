@@ -38,6 +38,7 @@
 #define bool int
 
 #include "assert.h"
+#define MAX_CHAR 16
 
 /* This file will work as given with an input file consisting only
    of integers separated by blanks:
@@ -45,6 +46,35 @@
    lex1
    12345 123    345  357
    */
+
+
+extern int CHARCLASS[MAXCHARCLASS];
+
+
+/** char* operators[]  = {" ", "+", "-", "*", "/", ":=", "=", "<>", "<", "<=",
+  *                           ">=", ">",  "^", ".", "and", "or", "not", "div",
+  *                           "mod", "in", "if", "goto", "progn", "label",
+  *                           "funcall", "aref", "program", "float"}; */
+
+char* operators[]  = {" ", "+", "-", "*", "/", ":=", "=", "<>", "<", "<=",
+                          ">=", ">",  "^", ".", "and", "or", "not", "div",
+                          "mod", "in"};
+const int max_operators = sizeof(operators) / sizeof(char*);
+/* 28, [27] is "float" */
+
+char *delimiters[] = { "  ", " ,", " ;", " :", " (", " )", " [", " ]",
+                           ".."} ;
+const int max_delimiters = sizeof(delimiters) / sizeof(char*);
+/* 9, [8] is ".." */
+
+char *reserveds[] = { " ", "array", "begin", "case", "const", "do",
+                           "downto", "else", "end", "file", "for",
+		           "function", "goto", "if", "label", "nil",
+                           "of", "packed", "procedure", "program", "record",
+                           "repeat", "set", "then", "to", "type",
+		           "until", "var", "while", "with" };
+/* 30, [29] is "with" */
+const int max_reserveds = sizeof(reserveds) / sizeof(char*);
 
 enum skip_t {SKIP_INVALID, SKIP_BLANK, SKIP_WHITESPACE,
   SKIP_COMMENT_TYPE_1,
@@ -76,7 +106,6 @@ bool is_whitespace(enum skip_t* skiptype) {
 
 bool is_comments(enum skip_t* skiptype) {
   int c;
-  int cc;
 
   /** Comment type 1 : { comment } */
   if ((c = peekchar()) != EOF
@@ -100,6 +129,14 @@ bool is_comments(enum skip_t* skiptype) {
   return false;
 }
 
+bool is_blank_or_whitespace(char c) {
+  if (c == ' ' || c == '\n' || c != '\t') {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 /* Skip blanks and whitespace.  Expand this function to skip comments too. */
 void skipblanks () {
   int c;
@@ -118,11 +155,6 @@ void skipblanks () {
         skiptype == SKIP_WHITESPACE) {
       // remove one char
       getchar();
-
-
-      printf("skip blank or whitespace\n");
-
-
     } else {
       // comments cases
 
@@ -131,13 +163,6 @@ void skipblanks () {
         do {
           getchar();
           c = peekchar();
-
-
-
-          printf("skip comment 1\n");
-
-
-
         } while ( c != EOF && c != '}');
         getchar();
 
@@ -148,13 +173,7 @@ void skipblanks () {
 
           c = peekchar();
           cc = peek2char();
-
-
-          printf("skip comment 2\n");
-
-
-        } while (
-            c != EOF && cc != EOF
+        } while ( c != EOF && cc != EOF
             && !(c == '*' && cc == ')') );
         getchar();
         getchar();
@@ -176,14 +195,171 @@ void skipblanks () {
    * } */
 }
 
-/* Get identifiers and reserved words */
+/* Get identifiers and reserved words, or operator words */
 TOKEN identifier (TOKEN tok) {
+  /* check whether it is reserved word first */
+  /* It is guaranteed that first char is alphabet */
+  int nc, i;
+  char c;
+
+  /* get the string */
+  memset(tok->stringval, 0, sizeof(tok->stringval));
+  for (nc = 0; nc < MAX_CHAR - 1; ++nc) {
+    c = peekchar();
+    if (CHARCLASS[(int)c] == ALPHA || CHARCLASS[(int)c] == NUMERIC) {
+      getchar();
+      tok->stringval[nc] = c;
+    } else {
+      break;
+    }
+  }
+
+  /* truncate string whose size is bigger than MAX_CHAR - 1 */
+  if (nc == MAX_CHAR - 1) {
+    while ((c = peekchar()) != EOF
+        && (! is_blank_or_whitespace(c)) ) {
+      getchar();
+    }
+  }
+
+  /* check whether it is a reserved word */
+  bool is_tokentype_found = false;
+  for (i = 1; i < max_reserveds && is_tokentype_found == false; ++i) {
+    if (strcmp(tok->stringval, reserveds[i]) == 0) {
+      tok->tokentype = RESERVED;
+
+      // reset string and get the number of token
+      memset(tok->stringval, 0, sizeof(tok->stringval));
+      tok->whichval = i;
+      is_tokentype_found = true;
+    }
+  }
+
+  /* check whether it is an operator */
+  /* 14 is the number of the first string operator */
+  for (i = 14; i < max_operators && is_tokentype_found == false; ++i) {
+    if (strcmp(tok->stringval, operators[i]) == 0) {
+      tok->tokentype = OPERATOR;
+
+      // reset string and get the number of token
+      memset(tok->stringval, 0, sizeof(tok->stringval));
+      tok->whichval = i;
+      is_tokentype_found = true;
+    }
+  }
+
+  
+  /* otherwise, identifier */
+  if ( ! is_tokentype_found) {
+    tok->tokentype = IDENTIFIERTOK;
+  }
+  return tok;
 }
 
 TOKEN getstring (TOKEN tok) {
+  int nc;
+  int c, cc;
+  bool str_end_met = false;
+
+  /* the first character is '\''. Remove it */
+  getchar();
+
+  /* get the string */
+  memset(tok->stringval, 0, sizeof(tok->stringval));
+  for (nc = 0; nc < MAX_CHAR - 1; ++nc) {
+    c = peekchar();
+    if (c != '\'') {
+      getchar();
+      tok->stringval[nc] = c;
+    } else if (peek2char() == '\''){
+      getchar();
+      getchar();
+      tok->stringval[nc] = c;
+    } else {
+      /* when it meets '\'' only, not '\'\'' */
+      str_end_met = true;
+      break;
+    }
+  }
+
+  while ( ! str_end_met) {
+    /* truncate string whose size is bigger than MAX_CHAR - 1 */
+    c = peekchar();
+    cc = peek2char();
+    if ( !(c == '\'' && cc == '\'')) {
+      str_end_met = true;
+      getchar();
+      getchar();
+    } else if (c == '\n' || c == EOF) {
+      perror("String is not closed. Appostrophe is omitted");
+      *((int*)0) = 0;
+    } else {
+      /* more string. continue while loop */
+      getchar();
+    }
+  }
+
+  tok->tokentype = STRINGTOK;
+  return tok;
 }
 
+/* operator or delimiter */
 TOKEN special (TOKEN tok) {
+  /* string operators were checked in identifier() */
+  int i, nc;
+  char c;
+
+  /* get special characters */
+  memset(tok->stringval, 0, sizeof(tok->stringval));
+  for (nc = 0; nc < MAX_CHAR - 1; ++nc) {
+    c = peekchar();
+    if (CHARCLASS[(int)c] == SPECIAL) {
+      tok->stringval[nc] = c;
+      getchar();
+    } else {
+      break;
+    }
+  }
+
+  if (nc == MAX_CHAR - 1) {
+    perror("There is no special characters that long");
+    assert(false);
+    *((int*)0) = 0;
+  }
+
+  /* check whether it is an operator */
+  bool is_tokentype_found = false;
+  for (i = 1; i < max_operators && is_tokentype_found == false; ++i) {
+    if (strcmp(tok->stringval, operators[i]) == 0) {
+      tok->tokentype = OPERATOR;
+
+      // reset string and get the number of token
+      memset(tok->stringval, 0, sizeof(tok->stringval));
+      tok->whichval = i;
+      is_tokentype_found = true;
+    }
+  }
+
+
+  /* check whether it is a delimiter */
+  for (i = 1; i < max_delimiters && is_tokentype_found == false; ++i) {
+    if (strcmp(tok->stringval, delimiters[i]) == 0) {
+      tok->tokentype = DELIMITER;
+
+      // reset string and get the number of token
+      memset(tok->stringval, 0, sizeof(tok->stringval));
+      tok->whichval = i;
+      is_tokentype_found = true;
+    }
+  }
+
+  /* if it is not an operaor or a delimiter, its error */
+  if (is_tokentype_found == false) {
+    perror("No matching token type");
+    *((int*)0) = 0;
+  }
+
+  return tok;
 }
 
 /* Get and convert unsigned numbers of all types. */

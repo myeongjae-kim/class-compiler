@@ -62,8 +62,7 @@ char* operators[]  = {" ", "+", "-", "*", "/", ":=", "=", "<>", "<", "<=",
 const int max_operators = sizeof(operators) / sizeof(char*);
 /* 28, [27] is "float" */
 
-char *delimiters[] = { "  ", " ,", " ;", " :", " (", " )", " [", " ]",
-                           ".."} ;
+char *delimiters[] = { " ", ",", ";", ":", "(", ")", "[", "]", ".."} ;
 const int max_delimiters = sizeof(delimiters) / sizeof(char*);
 /* 9, [8] is ".." */
 
@@ -307,49 +306,62 @@ TOKEN getstring (TOKEN tok) {
 TOKEN special (TOKEN tok) {
   /* string operators were checked in identifier() */
   int i, nc;
-  char c;
+  char c, cc;
+  bool is_tokentype_found = false;
 
   /* get special characters */
+  /* only two characters */
+
+  c = peekchar();
+  cc = peek2char();
+
   memset(tok->stringval, 0, sizeof(tok->stringval));
-  for (nc = 0; nc < MAX_CHAR - 1; ++nc) {
-    c = peekchar();
-    if (CHARCLASS[(int)c] == SPECIAL) {
-      tok->stringval[nc] = c;
-      getchar();
-    } else {
+  nc = 0;
+  tok->stringval[nc++] = c;
+  tok->stringval[nc++] = cc;
+
+  /* nc is 2 */
+  for (; nc > 0; --nc) {
+    /* check whether it is an operator */
+    for (i = 1; i < max_operators && is_tokentype_found == false; ++i) {
+      if (strcmp(tok->stringval, operators[i]) == 0) {
+        tok->tokentype = OPERATOR;
+
+        // reset string and get the number of token
+        memset(tok->stringval, 0, sizeof(tok->stringval));
+        tok->whichval = i;
+        is_tokentype_found = true;
+      }
+    }
+
+    /* check whether it is a delimiter */
+    for (i = 1; i < max_delimiters && is_tokentype_found == false; ++i) {
+      if (strcmp(tok->stringval, delimiters[i]) == 0) {
+        tok->tokentype = DELIMITER;
+
+        // reset string and get the number of token
+        memset(tok->stringval, 0, sizeof(tok->stringval));
+        tok->whichval = i;
+        is_tokentype_found = true;
+      }
+    }
+
+    if (is_tokentype_found == true) {
+      if (nc == 2) {
+        // two char operator
+        getchar();
+        getchar();
+      } else if (nc == 1) {
+        // one char operator or delimiter
+        getchar();
+      } else {
+        // impossible case
+        assert(false);
+      }
       break;
-    }
-  }
-
-  if (nc == MAX_CHAR - 1) {
-    perror("There is no special characters that long");
-    assert(false);
-    *((int*)0) = 0;
-  }
-
-  /* check whether it is an operator */
-  bool is_tokentype_found = false;
-  for (i = 1; i < max_operators && is_tokentype_found == false; ++i) {
-    if (strcmp(tok->stringval, operators[i]) == 0) {
-      tok->tokentype = OPERATOR;
-
-      // reset string and get the number of token
-      memset(tok->stringval, 0, sizeof(tok->stringval));
-      tok->whichval = i;
-      is_tokentype_found = true;
-    }
-  }
-
-
-  /* check whether it is a delimiter */
-  for (i = 1; i < max_delimiters && is_tokentype_found == false; ++i) {
-    if (strcmp(tok->stringval, delimiters[i]) == 0) {
-      tok->tokentype = DELIMITER;
-
-      // reset string and get the number of token
-      memset(tok->stringval, 0, sizeof(tok->stringval));
-      tok->whichval = i;
-      is_tokentype_found = true;
+    } else {
+      /* make string size 1 */
+      tok->stringval[1] = '\0';
     }
   }
 

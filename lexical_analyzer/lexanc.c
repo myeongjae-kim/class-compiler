@@ -41,6 +41,7 @@
 #include <limits.h>
 #include <float.h>
 #define MAX_CHAR 16
+#define NUM_BUFF_MAX 1026
 
 /* This file will work as given with an input file consisting only
    of integers separated by blanks:
@@ -428,7 +429,7 @@ long get_nine_digit_integer() {
 /* Get and convert unsigned numbers of all types. */
 /* Read numbers assume that it is an integer */
 /* When it meets point or 'e', go to the float process */
-TOKEN number (TOKEN tok) {
+TOKEN number_original (TOKEN tok) {
   long int_num, below_point;
   double real_num;
   int c, cc, i;
@@ -538,3 +539,81 @@ real_err:
   return (tok);
 }
 
+
+
+
+TOKEN number (TOKEN tok) {
+  static char num_buff[NUM_BUFF_MAX];
+  int num_buff_idx = 0, charval, i;
+  long int_num = 0;
+  double real_num = 0.0;
+  char c, cc;
+  bool is_int = true;
+  bool has_point = false;
+  bool has_e = false;
+  bool is_int_overflowed = false;
+
+  memset(num_buff, 0, sizeof(num_buff));
+  
+  for (num_buff_idx = 0; num_buff_idx < NUM_BUFF_MAX; ++num_buff_idx) {
+    c = peekchar();
+    cc = peek2char();
+
+    if ( !(c == '.' && cc == '.') /* not '..' */
+        && (CHARCLASS[(int)c] == NUMERIC  /* number or other chars*/
+          || c == '.' || c == 'e' || c == '+' || c == '-')) {
+
+      if ( (c == '+' || c == '-') && num_buff[num_buff_idx - 1] != 'e') {
+        // - or + is an operator.
+        // There is no case that num_buff_idx - 1 is zero
+        // because first character must be numeric.
+        break;
+      }
+
+
+      if (c == '.' || c == 'e') {
+        is_int = false;
+        if (c == '.') {
+          has_point = (c == '.');
+        } else if (c == 'e') {
+          has_e = (c == 'e');
+        }
+      }
+
+
+      // store character fo buffer.
+      num_buff[num_buff_idx] = c;
+      getchar();
+    } else {
+      break;
+    }
+  }
+
+  printf("Number: %s, has_point: %d, has_e: %d\n", num_buff, has_point, has_e);
+
+
+  tok->tokentype = NUMBERTOK;
+
+  if (is_int) {
+    for (i = 0; i < num_buff_idx; ++i) {
+      charval = (num_buff[i] - '0');
+      int_num = int_num * 10 + charval;
+
+      if (int_num > INT_MAX) {
+        is_int_overflowed = true;
+      }
+    }
+
+    if (is_int_overflowed) {
+      fprintf(stderr, "Integer overflow is occurred.\n");
+    }
+
+    tok->basicdt = INTEGER;
+    tok->intval = int_num;
+  } else {
+    tok->basicdt = REAL;
+    tok->realval = 12.34;
+  }
+
+  return (tok);
+}

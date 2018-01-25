@@ -37,7 +37,8 @@
 #define false 0
 #define bool int
 
-#include "assert.h"
+#include <assert.h>
+#include <limits.h>
 #define MAX_CHAR 16
 
 /* This file will work as given with an input file consisting only
@@ -169,6 +170,7 @@ void skipblanks () {
       } else if (skiptype == SKIP_COMMENT_TYPE_2) {
         do {
           getchar();
+          getchar();
 
           c = peekchar();
           cc = peek2char();
@@ -178,7 +180,7 @@ void skipblanks () {
         getchar();
       } else {
         // Invalid cases
-        perror("Invalid comment case");
+        fprintf(stderr, "Invalid comment case\n");
         assert(false);
         *((int*)0) = 0;
       }
@@ -290,7 +292,7 @@ TOKEN getstring (TOKEN tok) {
       getchar();
       getchar();
     } else if (c == '\n' || c == EOF) {
-      perror("String is not closed. Appostrophe is omitted");
+      fprintf(stderr, "String is no closed. Appostrophe is omitted.\n");
       *((int*)0) = 0;
     } else {
       /* more string. continue while loop */
@@ -299,6 +301,7 @@ TOKEN getstring (TOKEN tok) {
   }
 
   tok->tokentype = STRINGTOK;
+  tok->basicdt = STRINGTYPE;
   return tok;
 }
 
@@ -367,7 +370,7 @@ TOKEN special (TOKEN tok) {
 
   /* if it is not an operaor or a delimiter, its error */
   if (is_tokentype_found == false) {
-    perror("No matching token type");
+    fprintf(stderr, "No matching token type of the character: %c\n", c);
     *((int*)0) = 0;
   }
 
@@ -375,20 +378,65 @@ TOKEN special (TOKEN tok) {
 }
 
 /* Get and convert unsigned numbers of all types. */
+/* Read numbers assume that it is an integer */
+/* When it meets point or 'e', go to the float process */
 TOKEN number (TOKEN tok) {
-  long num;
-  int  c, charval;
-  num = 0;
+  long int_num;
+  double real_num;
+  int c, cc, charval;
+
+  int_num = 0;
   while ( (c = peekchar()) != EOF
       && CHARCLASS[c] == NUMERIC) {
     c = getchar();
     charval = (c - '0');
-    num = num * 10 + charval;
+    int_num = int_num * 10 + charval;
+
+    if (int_num > INT_MAX) {
+      fprintf(stderr, "Integer overflow is occurred.\n");
+      goto int_err;
+    }
   }
+
+  /* floating point process */
+  if (c == '.') {
+    /* check the case of .. */
+    cc = peek2char();
+    if (cc == '.') {
+      /* do nothing. number ends */
+
+    } else if (CHARCLASS[cc] == NUMERIC){
+      /** TODO. Calculate mantissa */
+    } else {
+      /* after ., next char must be number */
+      fprintf(stderr, "Invalid floating number form.\n");
+      *((int*)0) = 0;
+    }
+    
+  }
+  
+  if (c == 'e') {
+    
+  }
+  /** floating point process end */
 
   tok->tokentype = NUMBERTOK;
   tok->basicdt = INTEGER;
-  tok->intval = num;
+  tok->intval = int_num;
+  return (tok);
+
+
+int_err:
+  tok->tokentype = NUMBERTOK;
+  tok->basicdt = INTEGER;
+  tok->intval = int_num;
+  return (tok);
+
+
+real_err:
+  tok->tokentype = NUMBERTOK;
+  tok->basicdt = REAL;
+  tok->realval = real_num;
   return (tok);
 }
 

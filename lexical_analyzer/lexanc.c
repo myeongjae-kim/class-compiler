@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <float.h>
 #define MAX_CHAR 16
 
 /* This file will work as given with an input file consisting only
@@ -97,7 +98,6 @@ bool is_whitespace(enum skip_t* skiptype) {
   int c;
   if ((c = peekchar()) != EOF
       && (c == '\n' || c == '\t')) {
-
     *skiptype = SKIP_WHITESPACE;
     return true;
   }
@@ -130,7 +130,7 @@ bool is_comments(enum skip_t* skiptype) {
 }
 
 bool is_blank_or_whitespace(char c) {
-  if (c == ' ' || c == '\n' || c != '\t') {
+  if (c == ' ' || c == '\n' || c == '\t') {
     return true;
   } else {
     return false;
@@ -168,8 +168,9 @@ void skipblanks () {
 
       /** Comment type 2 : (* comment *) */
       } else if (skiptype == SKIP_COMMENT_TYPE_2) {
+        getchar();
+        /* go ahead with only one character */
         do {
-          getchar();
           getchar();
 
           c = peekchar();
@@ -278,6 +279,7 @@ TOKEN getstring (TOKEN tok) {
       tok->stringval[nc] = c;
     } else {
       /* when it meets '\'' only, not '\'\'' */
+      getchar();
       str_end_met = true;
       break;
     }
@@ -287,12 +289,11 @@ TOKEN getstring (TOKEN tok) {
     /* truncate string whose size is bigger than MAX_CHAR - 1 */
     c = peekchar();
     cc = peek2char();
-    if ( !(c == '\'' && cc == '\'')) {
+    if (c == '\'' && cc != '\'') {
       str_end_met = true;
       getchar();
-      getchar();
     } else if (c == '\n' || c == EOF) {
-      fprintf(stderr, "String is no closed. Appostrophe is omitted.\n");
+      fprintf(stderr, "String is not closed. Appostrophe is omitted.\n");
       *((int*)0) = 0;
     } else {
       /* more string. continue while loop */
@@ -377,28 +378,69 @@ TOKEN special (TOKEN tok) {
   return tok;
 }
 
-/* Get and convert unsigned numbers of all types. */
-/* Read numbers assume that it is an integer */
-/* When it meets point or 'e', go to the float process */
-TOKEN number (TOKEN tok) {
-  long int_num;
-  double real_num;
-  int c, cc, charval;
 
-  int_num = 0;
+long get_integer_from_input(bool* is_int_overflowed) {
+  char c, charval;
+  long int_num = 0;
   while ( (c = peekchar()) != EOF
-      && CHARCLASS[c] == NUMERIC) {
+      && CHARCLASS[(int)c] == NUMERIC) {
     c = getchar();
     charval = (c - '0');
     int_num = int_num * 10 + charval;
 
-    if (int_num > INT_MAX) {
-      fprintf(stderr, "Integer overflow is occurred.\n");
-      goto int_err;
+    if (is_int_overflowed != NULL && int_num > INT_MAX) {
+      *is_int_overflowed = true;
     }
   }
 
+  return int_num;
+}
+
+long get_nine_digit_integer() {
+  char c, charval;
+  long int_num = 0;
+  int max_digit = 9;
+
+  for (int i = 0; i < max_digit
+      && ((c = peekchar()) != EOF)
+      && CHARCLASS[(int)c] == NUMERIC; ++i) {
+    c = getchar();
+    charval = (c - '0');
+    int_num = int_num * 10 + charval;
+  }
+
+  // discard below numbers
+  while ( (c = peekchar()) != EOF
+      && CHARCLASS[(int)c] == NUMERIC) {
+    getchar();
+  }
+
+  // max number nine digit
+  while ( (int_num != 0) &&
+      ! (100000000 <= int_num && int_num < 1000000000)) {
+    int_num *= 10;
+  }
+
+  return int_num;
+}
+
+
+/* Get and convert unsigned numbers of all types. */
+/* Read numbers assume that it is an integer */
+/* When it meets point or 'e', go to the float process */
+TOKEN number (TOKEN tok) {
+  long int_num, below_point;
+  double real_num;
+  int c, cc, i;
+
+  bool is_int = true;
+  bool is_int_overflowed = false;
+
+  int_num = get_integer_from_input(&is_int_overflowed);
+  real_num = int_num;
+
   /* floating point process */
+  c = peekchar();
   if (c == '.') {
     /* check the case of .. */
     cc = peek2char();
@@ -406,23 +448,79 @@ TOKEN number (TOKEN tok) {
       /* do nothing. number ends */
 
     } else if (CHARCLASS[cc] == NUMERIC){
-      /** TODO. Calculate mantissa */
+      /* Calculate under decimal point number */
+      /* only nine digit */
+      is_int = false;
+
+      /* remove point */
+      getchar();
+
+      below_point = get_nine_digit_integer();
+      real_num += below_point / 1000000000.0; /* nine digit */
+      c = peekchar();
     } else {
       /* after ., next char must be number */
       fprintf(stderr, "Invalid floating number form.\n");
       *((int*)0) = 0;
     }
-    
   }
   
   if (c == 'e') {
-    
+    long exp;
+    is_int = false;
+
+    getchar();
+    c = peekchar();
+
+    if (c == '-') {
+      /** when exp is negative */
+      getchar();
+      exp = get_integer_from_input(NULL);
+      for (i = 0; i < exp; ++i) {
+        real_num /= 10;
+        if (real_num < FLT_MIN) {
+          fprintf(stderr, "Floating number underflow detected\n");
+          goto real_err;
+        }
+      }
+
+    } else if (c == '+' || CHARCLASS[(int)c] == NUMERIC) {
+      /** when exp is positive  */
+      if (c == '+') {
+        getchar();
+      }
+      exp = get_integer_from_input(NULL);
+      for (i = 0; i < exp; ++i) {
+        real_num *= 10;
+        if (real_num > FLT_MAX) {
+          fprintf(stderr, "Floating number overflow detected\n");
+          goto real_err;
+        }
+      }
+    } else {
+      fprintf(stderr, "Float number format is incorrect\n");
+      *((int*)0) = 0;
+    }
   }
   /** floating point process end */
 
+
+  if (is_int && is_int_overflowed) {
+    fprintf(stderr, "Integer overflow is occurred.\n");
+    goto int_err;
+  }
+
+
   tok->tokentype = NUMBERTOK;
-  tok->basicdt = INTEGER;
-  tok->intval = int_num;
+
+  if (is_int) {
+    tok->basicdt = INTEGER;
+    tok->intval = int_num;
+  } else {
+    tok->basicdt = REAL;
+    tok->realval = real_num;
+  }
+
   return (tok);
 
 

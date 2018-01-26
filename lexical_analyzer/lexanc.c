@@ -611,6 +611,92 @@ TOKEN number (TOKEN tok) {
     tok->basicdt = INTEGER;
     tok->intval = int_num;
   } else {
+    int exponent = 0;
+    int exponent_after_e = 0;
+    int sign = 1;
+    bool not_zero_digit_found = false;
+    int not_zero_digit_idx;
+    int point_idx;
+    int max_digit_idx;
+    long mantissa = 0;
+
+    /* get mantissa at most nine digit */
+    /* find the first digit which is not zero */
+
+    for (i = 0; i < num_buff_idx; ++i) {
+      if (num_buff[i] == '.') {
+        point_idx = i;
+        continue;
+      } else if (not_zero_digit_found == false
+          && num_buff[i] == '0') {
+        continue;
+      }
+
+      not_zero_digit_idx = i;
+      not_zero_digit_found = true;
+      break;
+    }
+
+    /* nine digit */
+    max_digit_idx = i + 9;
+    for (; i < max_digit_idx
+        && i < num_buff_idx; ++i) {
+      if (num_buff[i] == 'e') {
+        break;
+      }
+
+      if (num_buff[i] == '.') {
+        continue;
+      }
+
+      mantissa = mantissa * 10 + (num_buff[i] - '0');
+    }
+    printf("mantissa: %ld\n", mantissa);
+
+
+    /* get exponent */
+    if (has_point) {
+      /* TODO */
+    } else {
+      for (i = not_zero_digit_idx; i < num_buff_idx; ++i) {
+        if (num_buff[i] == 'e') {
+          break;
+        }
+        exponent++;
+      }
+
+      /* -1... */
+      if (exponent > 0) {
+        exponent--;
+      }
+    }
+
+
+    if (has_e) {
+      /* find e and get exponent */
+      for (i = num_buff_idx - 1; i >= 0 ; --i) {
+        if (num_buff[i] == 'e') {
+          break;
+        }
+      }
+
+      i++;
+
+      if (num_buff[i] == '-' || num_buff[i] == '+') {
+        sign = num_buff[i] == '-' ? (-1) : 1;
+        i++;
+      }
+
+      for (; i < num_buff_idx; i++) {
+        exponent_after_e = exponent_after_e * 10 + (num_buff[i] - '0');
+      }
+
+      exponent_after_e *= sign;
+    }
+
+    exponent += exponent_after_e;
+    printf("exp: %d\n", exponent);
+
     tok->basicdt = REAL;
     tok->realval = 12.34;
   }

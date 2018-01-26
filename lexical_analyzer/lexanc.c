@@ -584,12 +584,17 @@ TOKEN number (TOKEN tok) {
       // store character fo buffer.
       num_buff[num_buff_idx] = c;
       getchar();
+
+      if (cc == '\n') {
+        num_buff_idx++;
+        break;
+      }
     } else {
       break;
     }
   }
 
-  printf("Number: %s, has_point: %d, has_e: %d\n", num_buff, has_point, has_e);
+  /** printf("Number: %s, has_point: %d, has_e: %d\n", num_buff, has_point, has_e); */
 
 
   tok->tokentype = NUMBERTOK;
@@ -619,8 +624,10 @@ TOKEN number (TOKEN tok) {
     int point_idx;
     int max_digit_idx;
     long mantissa = 0;
+    int distance_bet_first_and_point = 0;
 
     /* get mantissa at most nine digit */
+
     /* find the first digit which is not zero */
 
     for (i = 0; i < num_buff_idx; ++i) {
@@ -646,17 +653,26 @@ TOKEN number (TOKEN tok) {
       }
 
       if (num_buff[i] == '.') {
+        point_idx = i;
+        max_digit_idx++;
         continue;
       }
 
       mantissa = mantissa * 10 + (num_buff[i] - '0');
     }
-    printf("mantissa: %ld\n", mantissa);
+    /** printf("mantissa: %ld\n", mantissa); */
 
 
     /* get exponent */
     if (has_point) {
-      /* TODO */
+      distance_bet_first_and_point = point_idx - not_zero_digit_idx;
+      if (distance_bet_first_and_point > 0) {
+        distance_bet_first_and_point--;
+      }
+      exponent += distance_bet_first_and_point;
+
+      /** printf("distance_bet_first_and_point = %d\n", */
+      /**     distance_bet_first_and_point); */
     } else {
       for (i = not_zero_digit_idx; i < num_buff_idx; ++i) {
         if (num_buff[i] == 'e') {
@@ -665,7 +681,7 @@ TOKEN number (TOKEN tok) {
         exponent++;
       }
 
-      /* -1... */
+      /* -1 because of the property of exponent */
       if (exponent > 0) {
         exponent--;
       }
@@ -695,7 +711,16 @@ TOKEN number (TOKEN tok) {
     }
 
     exponent += exponent_after_e;
-    printf("exp: %d\n", exponent);
+
+
+    tok->realval = mantissa;
+    while ( !(1.0 < tok->realval && tok->realval < 10.0)) {
+      tok->realval /= 10;
+    }
+
+    printf("maintissa: %lf, exp: %d\n", tok->realval, exponent);
+
+
 
     tok->basicdt = REAL;
     tok->realval = 12.34;

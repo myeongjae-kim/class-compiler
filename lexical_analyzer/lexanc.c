@@ -43,6 +43,8 @@
 #define MAX_CHAR 16
 #define NUM_BUFF_MAX 1026
 
+#define PE do{fprintf(stderr, "ERROR: ");}while(0)
+
 /* This file will work as given with an input file consisting only
    of integers separated by blanks:
    make lex1
@@ -182,6 +184,7 @@ void skipblanks () {
         getchar();
       } else {
         // Invalid cases
+        PE;
         fprintf(stderr, "Invalid comment case\n");
         assert(false);
         *((int*)0) = 0;
@@ -294,6 +297,7 @@ TOKEN getstring (TOKEN tok) {
       str_end_met = true;
       getchar();
     } else if (c == '\n' || c == EOF) {
+      PE;
       fprintf(stderr, "String is not closed. Appostrophe is omitted.\n");
       *((int*)0) = 0;
     } else {
@@ -372,6 +376,7 @@ TOKEN special (TOKEN tok) {
 
   /* if it is not an operaor or a delimiter, its error */
   if (is_tokentype_found == false) {
+    PE;
     fprintf(stderr, "No matching token type of the character: %c\n", c);
     *((int*)0) = 0;
   }
@@ -380,168 +385,100 @@ TOKEN special (TOKEN tok) {
 }
 
 
-long get_integer_from_input(bool* is_int_overflowed) {
-  char c, charval;
-  long int_num = 0;
-  while ( (c = peekchar()) != EOF
-      && CHARCLASS[(int)c] == NUMERIC) {
-    c = getchar();
-    charval = (c - '0');
-    int_num = int_num * 10 + charval;
+/** divide process: Integer process, Floating Process */
 
-    if (is_int_overflowed != NULL && int_num > INT_MAX) {
-      *is_int_overflowed = true;
+void get_mantissa(char *mantissa, int *mantissa_idx,
+    char* num_buff, int first_non_zero_idx) {
+  int i;
+  memset(mantissa, 0, sizeof(char) * NUM_BUFF_MAX);
+
+  for (i = first_non_zero_idx, *mantissa_idx = 0;
+      i < NUM_BUFF_MAX;
+      ++i) {
+    if (num_buff[i] == '.') {
+      continue;
+    } else if (CHARCLASS[(int)num_buff[i]] != NUMERIC) {
+      break;
     }
-  }
 
-  return int_num;
+    mantissa[(*mantissa_idx)++] = num_buff[i];
+  }
 }
 
-long get_nine_digit_integer() {
-  char c, charval;
-  long int_num = 0;
-  int max_digit = 9;
+long get_exponent(char* num_buff, int num_buff_idx,
+    int point_idx, int first_non_zero_idx,
+    bool has_e, bool has_point) {
 
-  for (int i = 0; i < max_digit
-      && ((c = peekchar()) != EOF)
-      && CHARCLASS[(int)c] == NUMERIC; ++i) {
-    c = getchar();
-    charval = (c - '0');
-    int_num = int_num * 10 + charval;
-  }
+  int distance_bet_first_and_point = 0;
 
-  // discard below numbers
-  while ( (c = peekchar()) != EOF
-      && CHARCLASS[(int)c] == NUMERIC) {
-    getchar();
-  }
-
-  // max number nine digit
-  while ( (int_num != 0) &&
-      ! (100000000 <= int_num && int_num < 1000000000)) {
-    int_num *= 10;
-  }
-
-  return int_num;
-}
+  long exponent = 0;
+  long exponent_after_e = 0;
+  int sign = 1;
+  int i;
 
 
-/* Get and convert unsigned numbers of all types. */
-/* Read numbers assume that it is an integer */
-/* When it meets point or 'e', go to the float process */
-TOKEN number_original (TOKEN tok) {
-  long int_num, below_point;
-  double real_num;
-  int c, cc, i;
+  /* calculate exponent by
+   * subtracting the position of point and first non zero number */
 
-  bool is_int = true;
-  bool is_int_overflowed = false;
-
-  int_num = get_integer_from_input(&is_int_overflowed);
-  real_num = int_num;
-
-  /* floating point process */
-  c = peekchar();
-  if (c == '.') {
-    /* check the case of .. */
-    cc = peek2char();
-    if (cc == '.') {
-      /* do nothing. number ends */
-
-    } else if (CHARCLASS[cc] == NUMERIC){
-      /* Calculate under decimal point number */
-      /* only nine digit */
-      is_int = false;
-
-      /* remove point */
-      getchar();
-
-      below_point = get_nine_digit_integer();
-      real_num += below_point / 1000000000.0; /* nine digit */
-      c = peekchar();
-    } else {
-      /* after ., next char must be number */
-      fprintf(stderr, "Invalid floating number form.\n");
-      *((int*)0) = 0;
+  if (has_point) {
+    distance_bet_first_and_point = point_idx - first_non_zero_idx;
+    if (distance_bet_first_and_point > 0) {
+      distance_bet_first_and_point--;
     }
-  }
-  
-  if (c == 'e') {
-    long exp;
-    is_int = false;
+    exponent += distance_bet_first_and_point;
 
-    getchar();
-    c = peekchar();
-
-    if (c == '-') {
-      /** when exp is negative */
-      getchar();
-      exp = get_integer_from_input(NULL);
-      for (i = 0; i < exp; ++i) {
-        real_num /= 10;
-        if (real_num < FLT_MIN) {
-          fprintf(stderr, "Floating number underflow detected\n");
-          goto real_err;
-        }
-      }
-
-    } else if (c == '+' || CHARCLASS[(int)c] == NUMERIC) {
-      /** when exp is positive  */
-      if (c == '+') {
-        getchar();
-      }
-      exp = get_integer_from_input(NULL);
-      for (i = 0; i < exp; ++i) {
-        real_num *= 10;
-        if (real_num > FLT_MAX) {
-          fprintf(stderr, "Floating number overflow detected\n");
-          goto real_err;
-        }
-      }
-    } else {
-      fprintf(stderr, "Float number format is incorrect\n");
-      *((int*)0) = 0;
-    }
-  }
-  /** floating point process end */
-
-
-  if (is_int && is_int_overflowed) {
-    fprintf(stderr, "Integer overflow is occurred.\n");
-    goto int_err;
-  }
-
-
-  tok->tokentype = NUMBERTOK;
-
-  if (is_int) {
-    tok->basicdt = INTEGER;
-    tok->intval = int_num;
+    /** printf("distance_bet_first_and_point = %d\n", */
+    /**     distance_bet_first_and_point); */
   } else {
-    tok->basicdt = REAL;
-    tok->realval = real_num;
+    /* when a number has no point */
+    for (i = first_non_zero_idx; i < num_buff_idx; ++i) {
+      if (num_buff[i] == 'e') {
+        break;
+      }
+      exponent++;
+    }
+
+    /* -1 because of the property of exponent */
+    if (exponent > 0) {
+      exponent--;
+    }
   }
 
-  return (tok);
 
+  if (has_e) {
+    /* find e and get exponent */
+    for (i = num_buff_idx - 1; i >= 0 ; --i) {
+      if (num_buff[i] == 'e') {
+        break;
+      }
+    }
 
-int_err:
-  tok->tokentype = NUMBERTOK;
-  tok->basicdt = INTEGER;
-  tok->intval = int_num;
-  return (tok);
+    i++;
 
+    if (num_buff[i] == '-' || num_buff[i] == '+') {
+      sign = num_buff[i] == '-' ? (-1) : 1;
+      i++;
+    }
 
-real_err:
-  tok->tokentype = NUMBERTOK;
-  tok->basicdt = REAL;
-  tok->realval = real_num;
-  return (tok);
+    for (; i < num_buff_idx; i++) {
+      exponent_after_e = exponent_after_e * 10 + (num_buff[i] - '0');
+
+      if (exponent_after_e > INT_MAX) {
+        exponent_after_e = INT_MAX;
+        break;
+      }
+    }
+
+    exponent_after_e *= sign;
+  }
+
+  exponent += exponent_after_e;
+
+  return exponent;
 }
 
 
-
-
+/* get integer part, mantissa, and exponent from the input */
 TOKEN number (TOKEN tok) {
   static char num_buff[NUM_BUFF_MAX];
   int num_buff_idx = 0, charval, i;
@@ -553,53 +490,89 @@ TOKEN number (TOKEN tok) {
   bool has_e = false;
   bool is_int_overflowed = false;
 
+  bool is_met_first_non_zero_idx = false;
+  int first_non_zero_idx;
+  int point_idx;
+
+  bool num_is_zero = false;
+
   memset(num_buff, 0, sizeof(num_buff));
-  
+
+  ///////////////// Start of reading number from stdin //////////////////
   for (num_buff_idx = 0; num_buff_idx < NUM_BUFF_MAX; ++num_buff_idx) {
+    /* check break cases */
     c = peekchar();
-    cc = peek2char();
 
-    if ( !(c == '.' && cc == '.') /* not '..' */
-        && (CHARCLASS[(int)c] == NUMERIC  /* number or other chars*/
-          || c == '.' || c == 'e' || c == '+' || c == '-')) {
-
-      if ( (c == '+' || c == '-') && num_buff[num_buff_idx - 1] != 'e') {
-        // - or + is an operator.
-        // There is no case that num_buff_idx - 1 is zero
-        // because first character must be numeric.
-        break;
-      }
-
-
-      if (c == '.' || c == 'e') {
-        is_int = false;
-        if (c == '.') {
-          has_point = (c == '.');
-        } else if (c == 'e') {
-          has_e = (c == 'e');
-        }
-      }
-
-
-      // store character fo buffer.
-      num_buff[num_buff_idx] = c;
-      getchar();
-
-      if (cc == '\n') {
-        num_buff_idx++;
-        break;
-      }
-    } else {
+    if (is_blank_or_whitespace(c) || c == EOF) {
       break;
     }
+
+    cc = peek2char();
+
+    if ((c == '.' && cc == '.')) {
+      break;
+    }
+
+    // number characters
+    if ( ! (CHARCLASS[(int)c] == NUMERIC
+          || c == '.' || c == 'e' || c == '+' || c == '-') ) {
+      break;
+    }
+
+    if ( (c == '+' || c == '-') && num_buff[num_buff_idx - 1] != 'e') {
+      // - or + is an operator.
+      // There is no case that num_buff_idx - 1 is zero
+      // because first character must be numeric.
+      break;
+    }
+    /* break cases end */
+
+    if (c == '.' || c == 'e') {
+      is_int = false;
+      if (c == '.') {
+        has_point = (c == '.');
+        point_idx = num_buff_idx;
+      } else if (c == 'e') {
+        has_e = (c == 'e');
+
+        if (is_met_first_non_zero_idx == false) {
+          /* case when the number is zero */
+          num_is_zero = true;
+        }
+      }
+    }
+
+    if (is_met_first_non_zero_idx == false
+        && CHARCLASS[(int)c] == NUMERIC
+        && c != '0') {
+
+      first_non_zero_idx = num_buff_idx;
+      is_met_first_non_zero_idx = true;
+    }
+
+
+    // store character fo buffer.
+    num_buff[num_buff_idx] = c;
+    getchar();
   }
-
-  /** printf("Number: %s, has_point: %d, has_e: %d\n", num_buff, has_point, has_e); */
-
+  ///////////////// End of reading number from stdin //////////////////
 
   tok->tokentype = NUMBERTOK;
+  /* when case of 0 or 0.0 */
+  if (num_is_zero || is_met_first_non_zero_idx == false) {
+    if (is_int) {
+      tok->intval = 0;
+      tok->basicdt = INTEGER;
+    } else {
+      tok->realval = 0;
+      tok->basicdt = REAL;
+    }
+    return (tok);
+  }
+
 
   if (is_int) {
+    /* when a number is integer */
     for (i = 0; i < num_buff_idx; ++i) {
       charval = (num_buff[i] - '0');
       int_num = int_num * 10 + charval;
@@ -610,121 +583,68 @@ TOKEN number (TOKEN tok) {
     }
 
     if (is_int_overflowed) {
+      PE;
       fprintf(stderr, "Integer overflow is occurred.\n");
     }
 
     tok->basicdt = INTEGER;
     tok->intval = int_num;
   } else {
-    int exponent = 0;
-    int exponent_after_e = 0;
-    int sign = 1;
-    bool not_zero_digit_found = false;
-    int not_zero_digit_idx;
-    int point_idx;
-    int max_digit_idx;
-    long mantissa = 0;
-    int distance_bet_first_and_point = 0;
+    /* floating number */
 
-    /* get mantissa at most nine digit */
-
-    /* find the first digit which is not zero */
-
-    for (i = 0; i < num_buff_idx; ++i) {
-      if (num_buff[i] == '.') {
-        point_idx = i;
-        continue;
-      } else if (not_zero_digit_found == false
-          && num_buff[i] == '0') {
-        continue;
-      }
-
-      not_zero_digit_idx = i;
-      not_zero_digit_found = true;
-      break;
-    }
-
-    /* nine digit */
-    max_digit_idx = i + 9;
-    for (; i < max_digit_idx
-        && i < num_buff_idx; ++i) {
-      if (num_buff[i] == 'e') {
-        break;
-      }
-
-      if (num_buff[i] == '.') {
-        point_idx = i;
-        max_digit_idx++;
-        continue;
-      }
-
-      mantissa = mantissa * 10 + (num_buff[i] - '0');
-    }
-    /** printf("mantissa: %ld\n", mantissa); */
+    /* 1. get integer part and mantissa
+     * 2. get exponent 
+     * 3. make a floating number from above information */
 
 
+    /* get integer part and mantissa */
+    static char mantissa[NUM_BUFF_MAX];
+    int mantissa_idx;
+
+    get_mantissa(mantissa, &mantissa_idx, num_buff, first_non_zero_idx);
+
+    /* choose the place of point */
     /* get exponent */
-    if (has_point) {
-      distance_bet_first_and_point = point_idx - not_zero_digit_idx;
-      if (distance_bet_first_and_point > 0) {
-        distance_bet_first_and_point--;
-      }
-      exponent += distance_bet_first_and_point;
+    long exponent = get_exponent(num_buff, num_buff_idx,
+        point_idx, first_non_zero_idx, 
+        has_e, has_point);
 
-      /** printf("distance_bet_first_and_point = %d\n", */
-      /**     distance_bet_first_and_point); */
-    } else {
-      for (i = not_zero_digit_idx; i < num_buff_idx; ++i) {
-        if (num_buff[i] == 'e') {
-          break;
-        }
-        exponent++;
-      }
-
-      /* -1 because of the property of exponent */
-      if (exponent > 0) {
-        exponent--;
-      }
+    /* make a integer part and mantissa */
+    real_num = mantissa[0] - '0';
+    double exp_for_mant = 1;
+    for (i = 1; i < mantissa_idx; ++i) {
+      exp_for_mant /= 10.0;
+      real_num += (mantissa[i] - '0') * exp_for_mant;
     }
 
-
-    if (has_e) {
-      /* find e and get exponent */
-      for (i = num_buff_idx - 1; i >= 0 ; --i) {
-        if (num_buff[i] == 'e') {
+    /* Apply exponent to the floating number */
+    if (exponent > 0) {
+      for (i = 0; i < exponent; ++i) {
+        real_num *= 10;
+        if (real_num > FLT_MAX) {
+          PE;
+          fprintf(stderr, "Floating number overflow occurred.\n");
+          real_num = 1.0 / 0.0; // infinity
           break;
         }
       }
-
-      i++;
-
-      if (num_buff[i] == '-' || num_buff[i] == '+') {
-        sign = num_buff[i] == '-' ? (-1) : 1;
-        i++;
+    } else if (exponent < 0) {
+      for (i = exponent; i < 0; ++i) {
+        real_num /= 10;
+        if (real_num < FLT_MIN) {
+          PE;
+          fprintf(stderr, "Floating number underflow occurred.\n");
+          real_num = 0.0;
+          break;
+        }
       }
-
-      for (; i < num_buff_idx; i++) {
-        exponent_after_e = exponent_after_e * 10 + (num_buff[i] - '0');
-      }
-
-      exponent_after_e *= sign;
     }
-
-    exponent += exponent_after_e;
-
-
-    tok->realval = mantissa;
-    while ( !(1.0 < tok->realval && tok->realval < 10.0)) {
-      tok->realval /= 10;
-    }
-
-    printf("maintissa: %lf, exp: %d\n", tok->realval, exponent);
-
-
 
     tok->basicdt = REAL;
-    tok->realval = 12.34;
+    tok->realval = real_num;
   }
 
   return (tok);
+
+
 }

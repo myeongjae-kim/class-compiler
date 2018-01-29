@@ -1,0 +1,8 @@
+** Lexical Analyzer **
+
+To compile the program: 'make lexanc'
+To run the program: './lexanc < [pascal source code]'
+
+** Environment **
+OS: Ubuntu 16.04.2
+Compiler: cc (Ubuntu 5.4.0-6ubuntu1~16.04.4) 5.4.0 20160609

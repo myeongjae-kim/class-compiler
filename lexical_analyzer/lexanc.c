@@ -38,12 +38,13 @@
 #define bool int
 
 #include <assert.h>
-#include <limits.h>
-#include <float.h>
 #define MAX_CHAR 16
 #define NUM_BUFF_MAX 1026
 
 #define PE do{fprintf(stderr, "ERROR: ");}while(0)
+
+#define FLT_MIN 1.175494e-38
+#define FLT_MAX 3.402823e+38
 
 /* This file will work as given with an input file consisting only
    of integers separated by blanks:
@@ -223,7 +224,7 @@ TOKEN identifier (TOKEN tok) {
   /* truncate string whose size is bigger than MAX_CHAR - 1 */
   if (nc == MAX_CHAR - 1) {
     while ((c = peekchar()) != EOF
-        && (! is_blank_or_whitespace(c)) ) {
+        && (CHARCLASS[(int)c] == ALPHA || CHARCLASS[(int)c] == NUMERIC) ) {
       getchar();
     }
   }
@@ -463,8 +464,8 @@ long get_exponent(char* num_buff, int num_buff_idx,
     for (; i < num_buff_idx; i++) {
       exponent_after_e = exponent_after_e * 10 + (num_buff[i] - '0');
 
-      if (exponent_after_e > INT_MAX) {
-        exponent_after_e = INT_MAX;
+      if (exponent_after_e > 2147483647) {
+        exponent_after_e = 2147483647;
         break;
       }
     }
@@ -482,7 +483,7 @@ long get_exponent(char* num_buff, int num_buff_idx,
 TOKEN number (TOKEN tok) {
   static char num_buff[NUM_BUFF_MAX];
   int num_buff_idx = 0, charval, i;
-  long int_num = 0;
+  int int_num = 0;
   double real_num = 0.0;
   char c, cc;
   bool is_int = true;
@@ -573,11 +574,13 @@ TOKEN number (TOKEN tok) {
 
   if (is_int) {
     /* when a number is integer */
+    int old_int_num;
     for (i = 0; i < num_buff_idx; ++i) {
       charval = (num_buff[i] - '0');
+      old_int_num = int_num;
       int_num = int_num * 10 + charval;
 
-      if (int_num > INT_MAX) {
+      if (old_int_num > int_num) {
         is_int_overflowed = true;
       }
     }

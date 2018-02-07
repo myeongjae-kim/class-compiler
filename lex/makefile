@@ -4,16 +4,11 @@
 #
 # token.h is assumed to be a local file because on some machines
 # or yacc versions tokenb.h must be used instead (renamed token.h).
-
-
-# To compile starter file lexan.l --> lexan
-# 
-lexan:   lexan.yy.o lexanl.o printtoken.o token.h lexan.h
-	cc -o lexan lexan.yy.o lexanl.o printtoken.o
-
 clean:
-	rm lexan lex2 *.o *.yy.c
+	rm lexer *.o *.yy.c
 
+# To compile starter file lex1.c --> lex1
+# 
 lex1:   lexandr.o lex1.o scanner.o printtoken.o token.h lexan.h
 	cc -o lex1 lexandr.o lex1.o scanner.o printtoken.o -lm
 
@@ -26,9 +21,6 @@ lexanc:  lexandr.o lexanc.o scanner.o printtoken.o token.h lexan.h
 # 
 lexasu:   lexasu.o
 	cc -o lexasu lexasu.o -ll
-
-
-
 
 # To compile starter file lex2.l --> lex2
 # 
@@ -145,14 +137,6 @@ lex2.yy.o: lex2.yy.c
 
 lex2.yy.c: lex2.l token.h lexan.h
 	lex -t lex2.l | cat >lex2.yy.c
-
-
-lexan.yy.o: lexan.yy.c
-	cc -c lexan.yy.c
-
-lexan.yy.c: lexan.l token.h lexan.h
-	lex -t lexan.l | cat >lexan.yy.c
-
 
 y.tab.c: parse.y token.h parse.h symtab.h lexan.h
 	yacc parse.y

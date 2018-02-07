@@ -53,8 +53,7 @@ TOKEN yylval;     /* This is the type of the lexical analyzer result */
 
 /* regular definitions */
 
-delim    [ \t\n]
-ws       {delim}+
+ws       [ \t\n]+
 letter   [A-Za-z]
 digit    [0-9]
 id       {letter}({letter}|{digit})*
@@ -72,6 +71,8 @@ begin     {return(maketoken(RESERVED, BEGINBEGIN));}
 end       {return(maketoken(RESERVED, END));}
 {id}      {return(install_id());}
 {fnumber} {return(install_fnum());}
+{comments} { /* no action and no return */ }
+
 "<"       {return(maketoken(OPERATOR, LT));}
 "<="      {return(maketoken(OPERATOR, LE));}
 "="       {return(maketoken(OPERATOR, EQ));}
@@ -79,10 +80,17 @@ end       {return(maketoken(RESERVED, END));}
 ">"       {return(maketoken(OPERATOR, GT));}
 ">="      {return(maketoken(OPERATOR, GE));}
 ":="      {return(maketoken(OPERATOR, ASSIGN));}
-"."       {return(maketoken(OPERATOR, DOT));}
-";"       {return(maketoken(DELIMITER, SEMICOLON));}
 
-{comments} { /* no action and no return */ }
+".."      {return(maketoken(DELIMITER, DOTDOT));}
+"."       {return(maketoken(OPERATOR, DOT));}
+
+","       {return(maketoken(DELIMITER, COMMA));}
+";"       {return(maketoken(DELIMITER, SEMICOLON));}
+":"       {return(maketoken(DELIMITER, COLON));}
+"("       {return(maketoken(DELIMITER, LPAREN));}
+")"       {return(maketoken(DELIMITER, RPAREN));}
+"["       {return(maketoken(DELIMITER, LBRACKET));}
+"]"       {return(maketoken(DELIMITER, RBRACKET));}
 
 %%
 

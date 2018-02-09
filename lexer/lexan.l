@@ -62,7 +62,7 @@ id       {letter}({letter}|{digit})*
 fnumber  {digit}+(\.{digit}+)?((E|e)[+\-]?{digit}+)?
 inumber  {digit}+
 
-comment1 \{.*\}
+comment1 \{[^}]*\}
 comment2 \(\*
 string   \'.*(\'\')*\'
 

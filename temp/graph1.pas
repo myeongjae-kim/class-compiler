@@ -1,8 +1,5 @@
 { program 4.9 from Jensen & Wirth       -- file graph1.pas }
 
-(**) u (***) v (****) w (*****) x (******) y (*)*) z
-
-
 program graph1(output);
 const d = 0.0625; {1/16, 16 lines for interval [x,x+1]}
       s = 32; {32 character widths for interval [y,y+1]}

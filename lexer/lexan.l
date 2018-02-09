@@ -39,6 +39,8 @@
 int maketoken(int type, int which);
 int install_id();
 int install_fnum();
+int install_inum();
+int install_string();
 int yywrap();
 
 /* If the lex yytext buffer turns out to be too small to hold comments,
@@ -57,21 +59,78 @@ ws       [ \t\n]+
 letter   [A-Za-z]
 digit    [0-9]
 id       {letter}({letter}|{digit})*
-fnumber  {digit}+(\.{digit}+)?(E[+\-]?{digit}+)?
+fnumber  {digit}+(\.{digit}+)?((E|e)[+\-]?{digit}+)?
+inumber  {digit}+
 
-comments \{.*\}|\(\*.*\*\)
+comment1 \{.*\}
+comment2 \(\*
+string   \'.*(\'\')*\'
 
 %%
 
 {ws}      { /* no action and no return */ }
-if        {return(maketoken(RESERVED, IF));}
-then      {return(maketoken(RESERVED, THEN));}
-else      {return(maketoken(RESERVED, ELSE));}
+array     {return(maketoken(RESERVED, ARRAY));}
 begin     {return(maketoken(RESERVED, BEGINBEGIN));}
+case      {return(maketoken(RESERVED, CASE));}
+const     {return(maketoken(RESERVED, CONST));}
+do        {return(maketoken(RESERVED, DO));}
+downto    {return(maketoken(RESERVED, DOWNTO));}
+else      {return(maketoken(RESERVED, ELSE));}
 end       {return(maketoken(RESERVED, END));}
+file      {return(maketoken(RESERVED, FILEFILE));}
+for       {return(maketoken(RESERVED, FOR));}
+function  {return(maketoken(RESERVED, FUNCTION));}
+goto      {return(maketoken(RESERVED, GOTO));}
+if        {return(maketoken(RESERVED, IF));}
+label     {return(maketoken(RESERVED, LABEL));}
+nil       {return(maketoken(RESERVED, NIL));}
+of        {return(maketoken(RESERVED, OF));}
+packed    {return(maketoken(RESERVED, PACKED));}
+procedure {return(maketoken(RESERVED, PROCEDURE));}
+program   {return(maketoken(RESERVED, PROGRAM));}
+record    {return(maketoken(RESERVED, RECORD));}
+repeat    {return(maketoken(RESERVED, REPEAT));}
+set       {return(maketoken(RESERVED, SET));}
+then      {return(maketoken(RESERVED, THEN));}
+to        {return(maketoken(RESERVED, TO));}
+type      {return(maketoken(RESERVED, TYPE));}
+until     {return(maketoken(RESERVED, UNTIL));}
+var       {return(maketoken(RESERVED, VAR));}
+while     {return(maketoken(RESERVED, WHILE));}
+with      {return(maketoken(RESERVED, WITH));}
+
+and       {return(maketoken(OPERATOR, AND));}
+or        {return(maketoken(OPERATOR, OR));}
+not       {return(maketoken(OPERATOR, NOT));}
+div       {return(maketoken(OPERATOR, DIV));}
+mod       {return(maketoken(OPERATOR, MOD));}
+in        {return(maketoken(OPERATOR, IN));}
+
 {id}      {return(install_id());}
+{inumber} {return(install_inum());}
 {fnumber} {return(install_fnum());}
-{comments} { /* no action and no return */ }
+{string}  {return(install_string());}
+{comment1} { /* no action and no return */ }
+{comment2} {
+  register int c;
+   while(1) {
+      while ( (c = input()) != '*' && c != EOF );
+
+      if(c == '*') {
+        if((c = input()) == ')') {
+          break;
+        }
+        unput(c);
+      }
+
+      if(c == EOF) {
+        REJECT;
+        break;
+      }
+   }
+}
+
+
 
 "<"       {return(maketoken(OPERATOR, LT));}
 "<="      {return(maketoken(OPERATOR, LE));}
@@ -80,6 +139,12 @@ end       {return(maketoken(RESERVED, END));}
 ">"       {return(maketoken(OPERATOR, GT));}
 ">="      {return(maketoken(OPERATOR, GE));}
 ":="      {return(maketoken(OPERATOR, ASSIGN));}
+
+"+"       {return(maketoken(OPERATOR, PLUS));}
+"-"       {return(maketoken(OPERATOR, MINUS));}
+"*"       {return(maketoken(OPERATOR, TIMES));}
+"/"       {return(maketoken(OPERATOR, DIVIDE));}
+
 
 ".."      {return(maketoken(DELIMITER, DOTDOT));}
 "."       {return(maketoken(OPERATOR, DOT));}
@@ -140,5 +205,49 @@ int install_fnum() {  /* Note -- you may use sscanf for this assignment. */
   yylval->realval = fnum;
   return(NUMBER);
  }
+
+int install_inum() {  /* Note -- you may use sscanf for this assignment. */
+  int inum;
+  yylval = (TOKEN) talloc();   /* Make new token, set yylval to point to it */
+  yylval->tokentype = NUMBERTOK;
+  yylval->basicdt = INTEGER;
+       /* printf("num %10s   n = %4d\n",yytext,yyleng); */
+  sscanf(yytext, "%d", &inum);
+  yylval->intval = inum;
+  return(NUMBER);
+ }
+
+
+int install_string() {
+  int i, j, c, n;
+  yylval = (TOKEN) talloc();   /* Make new token, set yylval to point to it */
+  yylval->tokentype = STRINGTOK;
+  yylval->basicdt = STRINGTYPE;
+       /* printf("string %s   n = %4d\n",yytext,yyleng); */
+
+  n = yyleng;
+  if ( n > 15 ) n = 15;
+
+  // j starts from one to skip the first \'
+  for (i = 0, j = 1; i < 15 ; i++, j++) {
+    // get string while removing \'
+    if (yytext[j] != '\'') {
+      yylval->stringval[i] = yytext[j];
+    } else {
+      // when yytext[j] == '\''
+
+      if (yytext[j + 1] == '\'') {
+        yylval->stringval[i] = yytext[j];
+        j++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  /* yylval->realval = fnum; */
+  return(STRING);
+}
+
 
 int yywrap() {  return(1);  }       /* lex may need this. */

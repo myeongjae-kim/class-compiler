@@ -78,13 +78,33 @@ TOKEN parseresult;
 
 %%
 
-program    :  statement DOT  /* change this! */       { parseresult = $1; }
+program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON statement DOT
+                                               { parseresult = $7; }
              ;
+
+  id_list    :  IDENTIFIER COMMA id_list       { $$ = cons($1, $3); }
+             |  IDENTIFIER                     { $$ = cons($1, NULL); }
+             ; 
+
+  vdef       :  VAR id_list COLON type endpart { instvars($2, $4); $$ = $2; } 
+             ;
+
+  type       :  simple_type
+             ;
+
+  simple_type:  IDENTIFIER                     { $$ = findtype($1); }
+             ;
+
   statement  :  BEGINBEGIN statement endpart
                                        { $$ = makeprogn($1,cons($2, $3)); }
              |  IF expr THEN statement endif   { $$ = makeif($1, $2, $4, $5); }
              |  assignment
+             |  vdef
+             |  FOR IDENTIFIER ASSIGN expr TO expr DO statement
+                                                /* TODO: makefor() */
+             |  funcall
              ;
+
   endpart    :  SEMICOLON statement endpart    { $$ = cons($2, $3); }
              |  END                            { $$ = NULL; }
              ;
@@ -102,7 +122,12 @@ program    :  statement DOT  /* change this! */       { parseresult = $1; }
   factor     :  LPAREN expr RPAREN             { $$ = $2; }
              |  IDENTIFIER
              |  NUMBER
+             |  funcall
              ;
+  funcall    :  IDENTIFIER LPAREN STRING RPAREN { $$ = makefuncall($0, $1, $3);}
+             ;
+
+
 
 %%
 
@@ -176,6 +201,40 @@ TOKEN makeprogn(TOKEN tok, TOKEN statements)
        };
      return tok;
    }
+
+
+TOKEN findtype(TOKEN tok) {
+  SYMBOL found_type = searchst(tok->stringval);
+  tok->symtype = found_type;
+  return tok;
+}
+
+/* install variables in symbol table */
+void instvars(TOKEN idlist, TOKEN typetok) {
+  SYMBOL sym, typesym; int align;
+  typesym = typetok->symtype;
+  align = alignsize(typesym);
+  while ( idlist != NULL) { /* for each id */
+    sym = insertsym(idlist->stringval);
+    sym->kind = VARSYM;
+    sym->offset =      /* "next */
+        wordaddress(blockoffs[blocknumber], align);
+    sym->size = typesym->size;
+    blockoffs[blocknumber] = /* "next" */
+                        sym->offset + sym->size;
+    sym->datatype = typesym;
+    sym->basicdt = typesym->basicdt;
+    idlist = idlist->link;
+  }
+}
+
+TOKEN makefuncall(TOKEN tok, TOKEN fn, TOKEN args) {
+// TODO
+  tok->operands = fn;
+  fn->link = args;
+  return tok;
+}
+
 
 int wordaddress(int n, int wordsize)
   { return ((n + wordsize - 1) / wordsize) * wordsize; }

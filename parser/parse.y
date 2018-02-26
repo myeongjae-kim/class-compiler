@@ -46,6 +46,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 #include "token.h"
 #include "lexan.h"
 #include "symtab.h"
@@ -57,6 +58,9 @@
 #define YYSTYPE TOKEN
 
 TOKEN parseresult;
+
+int sign_of_for(TOKEN from_expr, TOKEN to_expr);
+void instvars(TOKEN idlist, TOKEN typetok);
 
 %}
 
@@ -78,15 +82,18 @@ TOKEN parseresult;
 
 %%
 
-program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON statement DOT
-                                               { parseresult = $7; }
+program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON vblock DOT
+                { $1->tokentype = OPERATOR;
+                  $1->whichval = PROGRAMOP;
+                  $1->operands = makeprogram($2, makeprogn($3, $4), $7);
+                  parseresult = $1; }
              ;
 
   id_list    :  IDENTIFIER COMMA id_list       { $$ = cons($1, $3); }
              |  IDENTIFIER                     { $$ = cons($1, NULL); }
              ; 
 
-  vdef       :  VAR id_list COLON type endpart { instvars($2, $4); $$ = $2; } 
+  vdef       :  VAR id_list COLON type SEMICOLON { instvars($2, $4); }
              ;
 
   type       :  simple_type
@@ -99,9 +106,24 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON statement DOT
                                        { $$ = makeprogn($1,cons($2, $3)); }
              |  IF expr THEN statement endif   { $$ = makeif($1, $2, $4, $5); }
              |  assignment
-             |  vdef
              |  FOR IDENTIFIER ASSIGN expr TO expr DO statement
-                                                /* TODO: makefor() */
+                      {
+                        if (DEBUG) {
+                          printf("before entering makefor()\n");
+                          dbugprinttok($1);
+                          dbugprinttok($2);
+                          dbugprinttok($3);
+                          dbugprinttok($4);
+                          dbugprinttok($5);
+                          dbugprinttok($6);
+                          dbugprinttok($7);
+                          dbugprinttok($8);
+                        }
+                        
+                        $$ = makefor(sign_of_for($4, $6), $1,
+                                        binop($3, $2, $4), $5, $6, $7, $8);
+                        $$ = makeprogn($1, $$); 
+                      }
              |  funcall
              ;
 
@@ -124,9 +146,18 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON statement DOT
              |  NUMBER
              |  funcall
              ;
-  funcall    :  IDENTIFIER LPAREN STRING RPAREN { $$ = makefuncall($0, $1, $3);}
+  funcall    :  IDENTIFIER LPAREN STRING RPAREN 
+                                              { $$ = makefuncall($2, $1, $3); }
              ;
 
+  vblock     :  vdef block                     { $$ = $2; }
+             |  block
+             ;
+
+  block      :  BEGINBEGIN statement endpart
+                                       { $$ = makeprogn($1,cons($2, $3)); }
+             ;
+  
 
 
 %%
@@ -206,6 +237,11 @@ TOKEN makeprogn(TOKEN tok, TOKEN statements)
 TOKEN findtype(TOKEN tok) {
   SYMBOL found_type = searchst(tok->stringval);
   tok->symtype = found_type;
+
+  if (DEBUG) {
+    printf("findtype\n");
+    dbugprinttok(tok);
+  }
   return tok;
 }
 
@@ -226,14 +262,180 @@ void instvars(TOKEN idlist, TOKEN typetok) {
     sym->basicdt = typesym->basicdt;
     idlist = idlist->link;
   }
+
+  if (DEBUG) {
+    printf("instvars\n");
+    dbugprinttok(idlist);
+    dbugprinttok(typetok);
+  }
+
 }
 
 TOKEN makefuncall(TOKEN tok, TOKEN fn, TOKEN args) {
-// TODO
+  tok->tokentype = OPERATOR;
+  tok->whichval = FUNCALLOP;
   tok->operands = fn;
   fn->link = args;
+
+  if (DEBUG) {
+    printf("makefuncall\n");
+    dbugprinttok(tok);
+    dbugprinttok(fn);
+    dbugprinttok(args);
+  }
+
   return tok;
 }
+
+int sign_of_for(TOKEN from_expr, TOKEN to_expr) {
+  int from, to;
+  SYMBOL to_symbol = NULL;
+  from = from_expr->intval;
+  sscanf(to_expr->stringval, "%d", &to);
+  //TODO: fix it.
+
+  to_symbol = searchst(to_expr->stringval);
+
+
+  if (DEBUG) {
+    printf("sign_of_for\n");
+    dbugprinttok(from_expr);
+    dbugprinttok(to_expr);
+  }
+
+  return from < to ? 1 : -1; 
+}
+
+TOKEN makefor(int sign, TOKEN tok, TOKEN asg, TOKEN tokb, TOKEN endexpr,
+              TOKEN tokc, TOKEN statement){
+
+  TOKEN label = makelabel();
+  asg->link = label;
+
+  TOKEN if_token = tokb;
+  if_token->tokentype = OPERATOR;
+  if_token->whichval = IFOP;
+
+  label->link = if_token;
+
+  // tokc = '<='
+  TOKEN le_token = tokc;
+  le_token->tokentype = OPERATOR;
+  le_token->whichval = LEOP;
+
+  if_token->operands = le_token; 
+
+  le_token->operands = (TOKEN)talloc();
+  memcpy(le_token->operands, asg->operands, sizeof(*le_token->operands));
+  le_token->operands->link = endexpr;
+
+  le_token->link = makeprogn(talloc(), statement);
+
+
+  TOKEN count_assign = (TOKEN)talloc();
+  count_assign->tokentype = OPERATOR;
+  count_assign->whichval = ASSIGNOP;
+
+// after funcall
+  count_assign->operands = (TOKEN)talloc();
+  memcpy(count_assign->operands, le_token->operands,
+    sizeof(*count_assign->operands));
+  
+  TOKEN left_i = count_assign->operands;
+  TOKEN inc = (TOKEN)talloc();
+
+  left_i->link = inc;
+  inc->tokentype = OPERATOR;
+  inc->whichval = PLUSOP; 
+
+  TOKEN second_left_i = (TOKEN)talloc();
+  memcpy(second_left_i, le_token->operands, sizeof(*second_left_i));
+
+  inc->operands = second_left_i;
+  second_left_i->link = (TOKEN)talloc();
+  second_left_i->link->tokentype = NUMBERTOK;
+  second_left_i->link->basicdt = INTEGER;
+  second_left_i->link->intval = 1;
+
+// funcall's link is count_assign
+
+  statement->link = count_assign;
+
+// goto
+
+  count_assign->link = makegoto(label->operands->intval);
+
+
+  if (DEBUG) {
+    printf("makefor\n");
+    dbugprinttok(tok);
+    dbugprinttok(asg);
+    dbugprinttok(tokb);
+    dbugprinttok(endexpr);
+    dbugprinttok(tokc);
+    dbugprinttok(statement);
+  }
+
+  return asg;
+}
+
+TOKEN makeprogram(TOKEN name, TOKEN args, TOKEN statements) {
+  name->link = args;
+  args->link = statements;
+
+  if (DEBUG) {
+    printf("makeprogram\n");
+    dbugprinttok(name);
+    dbugprinttok(args);
+    dbugprinttok(statements);
+  }
+
+  return name;
+}
+
+TOKEN makelabel(void) {
+  TOKEN tok = (TOKEN)talloc(), num_label = (TOKEN)talloc();
+
+  tok->tokentype = OPERATOR;
+  tok->whichval = LABELOP;
+
+  num_label->tokentype = NUMBERTOK;
+  num_label->basicdt = INTEGER;
+  num_label->intval = labelnumber++;
+
+  tok->operands = num_label;
+
+
+  if (DEBUG) {
+    printf("makelabel\n");
+    dbugprinttok(tok);
+    dbugprinttok(num_label);
+  }
+
+  return tok;
+}
+
+TOKEN makegoto(int label) {
+  TOKEN tok = (TOKEN)talloc();
+  tok->tokentype = OPERATOR;
+  tok->whichval = GOTOOP;
+
+  TOKEN label_tok = (TOKEN)talloc();
+  label_tok->tokentype = NUMBERTOK;
+  label_tok->basicdt = INTEGER;
+  label_tok->intval = label;
+
+  tok->operands = label_tok;
+
+  if (DEBUG) {
+    printf("makegoto\n");
+    dbugprinttok(tok);
+    dbugprinttok(label_tok);
+  }
+
+  return tok;
+}
+
 
 
 int wordaddress(int n, int wordsize)
@@ -248,7 +450,7 @@ int main(void)          /*  */
   { int res;
     initsyms();
     res = yyparse();
-    printst();       /* to shorten, change to:  printstlevel(1);  */
+    printst();       /* to shorten, change to:  printstlevel(1); */
     printf("yyparse result = %8d\n", res);
     if (DEBUG & DB_PARSERES) dbugprinttok(parseresult);
     ppexpr(parseresult);           /* Pretty-print the result tree */

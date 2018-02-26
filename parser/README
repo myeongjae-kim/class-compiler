@@ -1,7 +1,7 @@
-** Lexical Analyzer Using Lex **
+** Parser Using Yacc(bison) **
 
-To compile the program: 'make lexer'
-To run the program: './lexer < [pascal source code]'
+To compile the program: 'make parser'
+To run the program: './parser < [pascal source code]'
 
 ** Environment **
 OS: Ubuntu 16.04.2

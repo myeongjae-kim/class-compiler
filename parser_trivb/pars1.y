@@ -1,6 +1,3 @@
-/* TODO: if-else ambiguity, and other grammars */
-
-
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
 
 /* Copyright (c) 2013 Gordon S. Novak Jr. and
@@ -78,130 +75,33 @@ TOKEN parseresult;
 %token OF PACKED PROCEDURE PROGRAM RECORD REPEAT SET THEN TO TYPE UNTIL
 %token VAR WHILE WITH
 
+
 %%
 
-program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
-                { $1->tokentype = OPERATOR;
-                  $1->whichval = PROGRAMOP;
-                  $1->operands = makeprogram($2, makeprogn($3, $4), $7);
-                  parseresult = $1; }
+program    :  statement DOT  /* change this! */       { parseresult = $1; }
              ;
   statement  :  BEGINBEGIN statement endpart
                                        { $$ = makeprogn($1,cons($2, $3)); }
-             |  IF expression THEN statement ELSE statement
-                                       { $$ = makeif($1, $2, $4, $5); }
-             |  IF expression THEN statement
-             |  variable ASSIGN expression
-             |  funcall
-             |  WHILE expression DO statement
-             |  REPEAT statement_list UNTIL expression
-             |  FOR IDENTIFIER ASSIGN expression TO expression DO statement
-             |  GOTO NUMBER
-             |  label
+             |  IF expr THEN statement endif   { $$ = makeif($1, $2, $4, $5); }
+             |  assignment
              ;
-  statement_list :  statement SEMICOLON statement_list { $$ = cons($1, $3); }
-                 |  statement
-                 ;
   endpart    :  SEMICOLON statement endpart    { $$ = cons($2, $3); }
              |  END                            { $$ = NULL; }
              ;
-  term       :  term times_op factor              { $$ = binop($2, $1, $3); }
+  endif      :  ELSE statement                 { $$ = $2; }
+             |  /* empty */                    { $$ = NULL; }
+             ;
+  assignment :  IDENTIFIER ASSIGN expr         { $$ = binop($2, $1, $3); }
+             ;
+  expr       :  expr PLUS term                 { $$ = binop($2, $1, $3); }
+             |  term 
+             ;
+  term       :  term TIMES factor              { $$ = binop($2, $1, $3); }
              |  factor
              ;
-  unsigned_constant :  IDENTIFIER | NUMBER | NIL | STRING
-                    ;
-  sign       :  PLUS
-             |  MINUS
-             ;
-  constant   :  sign IDENTIFIER
+  factor     :  LPAREN expr RPAREN             { $$ = $2; }
              |  IDENTIFIER
-             |  sign NUMBER
              |  NUMBER
-             |  STRING
-             ;
-  id_list    :  IDENTIFIER COMMA id_list       { $$ = cons($1, $3); }
-             |  IDENTIFIER                     { $$ = cons($1, NULL); }
-             ; 
-  simple_type:  IDENTIFIER
-             |  LPAREN id_list RPAREN          { $$ = $2; }
-             |  constant DOTDOT constant
-             ;
-  simple_type_list : simple_type COMMA simple_type_list { $$ = cons($1, $3); }
-                   | simple_type                        {$$ = cons($1, NULL);}
-                   ;
-  fields     :  id_list COLON type
-             ;
-  field_list :  fields SEMICOLON field_list { $$ = cons($1, $3); }
-             |  fields                      { $$ = cons($1, NULL); }
-             ;
-  type       :  simple_type
-             |  ARRAY LBRACKET simple_type_list RBRACKET OF type
-             |  RECORD field_list END       { $$ = $2; }
-             |  POINT IDENTIFIER
-             ;
-  plus_op    :  PLUS | MINUS | OR
-             ;
-  simple_expression : sign term             { $$ = $2; }
-                    | term
-                    | simple_expression plus_op term
-                    ;
-  compare_op :  EQ | LT | GT | NE | LE | GE | IN
-             ;
-  expression :  expression compare_op simple_expression
-             |  simple_expression
-             ;
-  expr_list  :  expression COMMA expr_list  { $$ = cons($1, $3); }
-             |  expression
-             ;
-  variable   :  IDENTIFIER
-             |  variable LBRACKET expr_list RBRACKET
-             |  variable DOT IDENTIFIER
-             |  variable POINT
-             ;
-  funcall    :  IDENTIFIER LPAREN STRING RPAREN 
-                                            { $$ = makefuncall($2, $1, $3); }
-  factor     :  unsigned_constant
-             |  variable
-             |  funcall
-             |  LPAREN expression RPAREN    { $$ = $2; }
-             |  NOT factor
-             ;
-  times_op   :  TIMES | DIVIDE | DIV | MOD | AND
-             ;
-  numlist    :  NUMBER COMMA numlist         { $$ = cons($1, $3); }
-             |  NUMBER
-             ;
-  
-  lblock     :  LABEL numlist SEMICOLON cblock
-             |  cblock
-             ;
-  cblock     :  CONST cdef_list tblock
-             |  tblock
-             ;
-  cdef       :  IDENTIFIER EQ constant
-             ;
-  cdef_list  :  cdef SEMICOLON cdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
-             ;
-  tblock     :  TYPE tdef_list vblock
-             |  vblock
-             ;
-  tdef       :  IDENTIFIER EQ type
-             ;
-  tdef_list  :  tdef SEMICOLON tdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
-             ;
-  vblock     :  VAR vdef_list block
-             |  block
-             ;
-  vdef       :  id_list COLON type
-             ;
-  vdef_list  :  vdef SEMICOLON vdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
-             ;
-  block      :  BEGINBEGIN statement endpart
-             ;
-  label      :  NUMBER COLON statement
              ;
 
 %%

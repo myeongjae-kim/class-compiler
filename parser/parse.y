@@ -68,6 +68,7 @@ TOKEN parseresult;
 
 void instvars(TOKEN idlist, TOKEN typetok);
 TOKEN check_const(TOKEN id);
+TOKEN const_findtype(TOKEN id);
 
 %}
 
@@ -137,11 +138,13 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   sign       :  PLUS
              |  MINUS
              ;
-  constant   :  sign IDENTIFIER
-             |  IDENTIFIER
-             |  sign NUMBER
-             |  NUMBER
-             |  STRING
+  constant   :  sign IDENTIFIER   { $$ = const_findtype($2);
+                                    $$ = unaryop($1, $$);    }
+             |  IDENTIFIER        { $$ = const_findtype($1); }
+             |  sign NUMBER       { $$ = const_findtype($2);
+                                    $$ = unaryop($1, $$);    }
+             |  NUMBER            { $$ = const_findtype($1); }
+             |  STRING            { $$ = const_findtype($1); }
              ;
   id_list    :  IDENTIFIER COMMA id_list       { $$ = cons($1, $3); }
              |  IDENTIFIER                     { $$ = cons($1, NULL); }
@@ -297,14 +300,22 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
         if (!lhs_sym && !rhs_sym) {
           if(lhs->basicdt == INTEGER && rhs->basicdt == REAL) {
             // need to coerce
-            coerce_tok = (TOKEN)talloc();
-            coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FIXOP;
-
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
+            lhs->basicdt = REAL;
+            lhs->realval = lhs->intval;
 
           } else if(lhs->basicdt == REAL && rhs->basicdt == INTEGER) {
+            // need to coerce
+            rhs->basicdt = REAL;
+            rhs->realval = rhs->intval;
+
+          } else {
+            // do nothing
+            // no need to coerce
+          }
+        } else if (lhs_sym && !rhs_sym) {
+          // lhs is symbol constant
+          if( (lhs_sym == int_sym || lhs_sym->datatype == int_sym)
+                && rhs->basicdt == REAL) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
@@ -313,22 +324,8 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
-          } else {
-            // do nothing
-            // no need to coerce
-          }
-        } else if (lhs_sym && !rhs_sym) {
-          // lhs is symbol constant
-          if(lhs_sym == int_sym && rhs->basicdt == REAL) {
-            // need to coerce
-            coerce_tok = (TOKEN)talloc();
-            coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FIXOP;
-
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
-
-          } else if(lhs_sym == real_sym && rhs->basicdt == INTEGER) {
+          } else if( (lhs_sym == real_sym || lhs_sym->datatype == real_sym)
+                && rhs->basicdt == INTEGER) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
@@ -343,16 +340,18 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
           }
         } else if (!lhs_sym && rhs_sym) {
           // rhs is symbol constant
-          if(lhs->basicdt == INTEGER && rhs_sym == real_sym) {
+          if(lhs->basicdt == INTEGER 
+             && (rhs_sym == real_sym || rhs_sym->datatype == real_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FIXOP;
+            coerce_tok->whichval = FLOATOP;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
-          } else if(lhs->basicdt == REAL && rhs_sym == int_sym) {
+          } else if(lhs->basicdt == REAL 
+            && (rhs_sym == int_sym || rhs_sym->datatype == int_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
@@ -367,16 +366,18 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
           }
         } else {
           // both are symbol constant
-          if(lhs_sym == int_sym && rhs_sym == real_sym) {
+          if((lhs_sym == int_sym || lhs_sym->datatype == int_sym)
+            && (rhs_sym == real_sym || rhs_sym->datatype == real_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FIXOP;
+            coerce_tok->whichval = FLOATOP;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
-          } else if(lhs_sym == real_sym && rhs_sym == int_sym) {
+          } else if((lhs_sym == real_sym || lhs_sym->datatype == real_sym)
+            && (rhs_sym == int_sym || rhs_sym->datatype == int_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
@@ -402,6 +403,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
 
       case ASSIGNOP:
         if (DEBUG) printf("\t\t\tassignop\n");
+        // TODO
         break;
       
       case EQOP:
@@ -468,6 +470,29 @@ TOKEN findtype(TOKEN tok) {
   if (DEBUG) {
     printf("findtype\n");
     dbugprinttok(tok);
+  }
+  return tok;
+}
+
+TOKEN const_findtype(TOKEN tok) {
+  switch(tok->basicdt) {
+    case INTEGER:
+      tok->symtype = searchst("integer");
+      break;
+    case REAL:
+      tok->symtype = searchst("real");
+      break;
+    case STRINGTYPE:
+      tok->symtype = searchst("char");
+      break;
+    case BOOLETYPE:
+      tok->symtype = searchst("boolean");
+      break;
+    case POINTER:
+      /* TODO */
+      break;
+    default:
+      break;
   }
   return tok;
 }
@@ -651,24 +676,7 @@ void instconst(TOKEN idtok, TOKEN consttok) {
   SYMBOL sym = insertsym(idtok->stringval);
   sym->kind = CONSTSYM;
   sym->basicdt = consttok->basicdt;
-
-  switch(sym->basicdt) {
-    case INTEGER:
-      sym->datatype = searchst("integer");
-      break;
-    case REAL:
-      sym->datatype = searchst("real");
-      break;
-    case STRINGTYPE:
-      sym->datatype = searchst("char");
-      break;
-    case BOOLETYPE:
-      sym->datatype = searchst("boolean");
-      break;
-    default:
-      // TOOD
-      break;
-  }
+  sym->datatype = consttok->symtype;
 
   // just copy memory regardless of basicdt.
   memcpy(sym->constval.stringconst, consttok->stringval,

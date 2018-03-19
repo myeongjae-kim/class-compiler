@@ -269,17 +269,37 @@ TOKEN cons(TOKEN item, TOKEN list)           /* add item to front of list */
   }
 
 TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
-  { SYMBOL lhs_sym = searchst(lhs->stringval);
-    SYMBOL rhs_sym = searchst(rhs->stringval);
+  { SYMBOL lhs_sym = searchst(lhs->stringval); // type of token
+    SYMBOL rhs_sym = searchst(rhs->stringval); // type of token
 
     SYMBOL real_sym = searchst("real");
     SYMBOL int_sym = searchst("integer");
 
     TOKEN coerce_tok = NULL;
 
+    if(lhs->tokentype == OPERATOR) {
+      lhs_sym = lhs->symtype;
+    }
+    if(rhs->tokentype == OPERATOR) {
+      rhs_sym = rhs->symtype;
+    }
+
     op->operands = lhs;          /* link operands to operator       */
     lhs->link = rhs;             /* link second operand to first    */
     rhs->link = NULL;            /* terminate operand list          */
+
+    // operator's return type.
+    if(!lhs_sym && lhs->basicdt == INTEGER) {
+      op->symtype = int_sym;
+    } else if (!lhs_sym && lhs->basicdt == REAL) {
+      op->symtype = real_sym;
+    } else if (lhs_sym 
+                && lhs_sym == int_sym || lhs_sym->datatype == int_sym) {
+      op->symtype = int_sym;
+    } else if (lhs_sym 
+                && lhs_sym == real_sym || lhs_sym->datatype == real_sym) {
+      op->symtype = real_sym;
+    }
 
     // Coercion Case.
     switch (op->whichval) {
@@ -302,11 +322,13 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             // need to coerce
             lhs->basicdt = REAL;
             lhs->realval = lhs->intval;
+            op->symtype = real_sym;
 
           } else if(lhs->basicdt == REAL && rhs->basicdt == INTEGER) {
             // need to coerce
             rhs->basicdt = REAL;
             rhs->realval = rhs->intval;
+            op->symtype = real_sym;
 
           } else {
             // do nothing
@@ -320,20 +342,19 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
+            coerce_tok->symtype = real_sym;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
+            op->symtype = real_sym;
           } else if( (lhs_sym == real_sym || lhs_sym->datatype == real_sym)
                 && rhs->basicdt == INTEGER) {
             // need to coerce
-            coerce_tok = (TOKEN)talloc();
-            coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FLOATOP;
+            rhs->basicdt = REAL;
+            rhs->realval = rhs->intval;
 
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
-
+            op->symtype = real_sym;
           } else {
             // do nothing
             // no need to coerce
@@ -343,23 +364,22 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
           if(lhs->basicdt == INTEGER 
              && (rhs_sym == real_sym || rhs_sym->datatype == real_sym)) {
             // need to coerce
-            coerce_tok = (TOKEN)talloc();
-            coerce_tok->tokentype = OPERATOR;
-            coerce_tok->whichval = FLOATOP;
+            lhs->basicdt = REAL;
+            lhs->realval = lhs->intval;
 
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
-
+            op->symtype = real_sym;
           } else if(lhs->basicdt == REAL 
             && (rhs_sym == int_sym || rhs_sym->datatype == int_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
+            coerce_tok->symtype = real_sym;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
+            op->symtype = real_sym;
           } else {
             // do nothing
             // no need to coerce
@@ -372,20 +392,24 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
+            coerce_tok->symtype = real_sym;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
+            op->symtype = real_sym;
           } else if((lhs_sym == real_sym || lhs_sym->datatype == real_sym)
             && (rhs_sym == int_sym || rhs_sym->datatype == int_sym)) {
             // need to coerce
             coerce_tok = (TOKEN)talloc();
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
+            coerce_tok->symtype = real_sym;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
+            op->symtype = real_sym;
           } else {
             // do nothing
             // no need to coerce
@@ -393,17 +417,59 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
         }
         break;
 
-      /* case TIMESOP:
-       * case DIVIDEOP:
-       * case DIVOP:
-       * case MODOP:
-       * case ANDOP:
-       *   if (DEBUG) printf("\t\t\ttimes_op\n");
-       *   break; */
-
       case ASSIGNOP:
         if (DEBUG) printf("\t\t\tassignop\n");
-        // TODO
+        // TODO : lhs must be variable(= identifier)
+        
+
+        // left is integer and right is real
+        if (lhs_sym == int_sym || lhs_sym->datatype == int_sym){
+
+          // rhs is constant
+          if(!rhs_sym && rhs->basicdt == REAL) {
+            rhs->basicdt = INTEGER;
+            rhs->intval = rhs->realval;
+            op->symtype = int_sym;
+
+          // rhs is not a constant
+          } else if (rhs_sym == real_sym
+                      || (rhs_sym && rhs_sym->datatype == real_sym)) {
+            coerce_tok = (TOKEN)talloc();
+            coerce_tok->tokentype = OPERATOR;
+            coerce_tok->whichval = FIXOP;
+            coerce_tok->symtype = int_sym;
+
+            coerce_tok->operands = rhs;
+            lhs->link = coerce_tok;
+
+            op->symtype = int_sym;
+          }
+
+        // left is real and right is integer
+        } else if (lhs_sym == real_sym || lhs_sym->datatype == real_sym){
+
+          // rhs is constant
+          if(!rhs_sym && rhs->basicdt == INTEGER) {
+            rhs->basicdt = REAL;
+            rhs->realval = rhs->intval;
+            op->symtype = real_sym;
+
+          // rhs is not a constant
+          } else if (rhs_sym == int_sym
+                      || (rhs_sym && rhs_sym->datatype == int_sym)) {
+            coerce_tok = (TOKEN)talloc();
+            coerce_tok->tokentype = OPERATOR;
+            coerce_tok->whichval = FLOATOP;
+            coerce_tok->symtype = real_sym;
+
+            coerce_tok->operands = rhs;
+            lhs->link = coerce_tok;
+
+            op->symtype = real_sym;
+          }
+        }
+
+
         break;
       
       case EQOP:
@@ -414,6 +480,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
       case GEOP:
       case INOP:
         if (DEBUG) printf("\t\t\tassignop\n");
+        // TODO
         break;
       
 
@@ -597,10 +664,15 @@ TOKEN makefor(int sign, TOKEN tok, TOKEN asg, TOKEN tokb, TOKEN endexpr,
 }
 
 TOKEN makefuncall(TOKEN tok, TOKEN fn, TOKEN args) {
+  SYMBOL fn_sym = searchst(fn->stringval);
+
   tok->tokentype = OPERATOR;
   tok->whichval = FUNCALLOP;
   tok->operands = fn;
   fn->link = args;
+
+  //return type should be in tok.
+  tok->symtype = fn_sym->datatype->datatype;
 
   if (DEBUG) {
     printf("makefuncall\n");

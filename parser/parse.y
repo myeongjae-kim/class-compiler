@@ -1,8 +1,4 @@
 /* TODO: if-else ambiguity, and other grammars */
-/* TOOD: coercion for variables. Use symtbr -> datatype.
-          Register symtbr->datatype even though it is a constant. */
-/* TODO: Coersion. Find function in the symbol table. 
-          there is a result type in datatype. */
 
 
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
@@ -101,7 +97,6 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
                                        { $$ = makeif($1, $2, $4, $5); }
              |  IF expression THEN statement
              |  variable ASSIGN expression { $$ = binop($2, $1, $3); }
-                                             /* TODO: Coersion */
              |  funcall
              |  WHILE expression DO statement
              |  REPEAT statement_list UNTIL expression
@@ -129,8 +124,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   endpart    :  SEMICOLON statement endpart    { $$ = cons($2, $3); }
              |  END                            { $$ = NULL; }
              ;
-  term       :  term times_op factor              { $$ = binop($2, $1, $3); 
-                                                /* TODO: coersion to float */}
+  term       :  term times_op factor              { $$ = binop($2, $1, $3); }
              |  factor
              ;
   unsigned_constant :  IDENTIFIER {check_const($1);}| NUMBER | NIL | STRING
@@ -156,15 +150,15 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   simple_type_list : simple_type COMMA simple_type_list { $$ = cons($1, $3); }
                    | simple_type                        {$$ = cons($1, NULL);}
                    ;
-  fields     :  id_list COLON type
+  fields     :  id_list COLON type          { $$ = instfields($1, $3); /*TODO */}
              ;
   field_list :  fields SEMICOLON field_list { $$ = cons($1, $3); }
-             |  fields                      { $$ = cons($1, NULL); }
+             |  fields
              ;
-  type       :  simple_type
-             |  ARRAY LBRACKET simple_type_list RBRACKET OF type
-             |  RECORD field_list END       { $$ = $2; }
-             |  POINT IDENTIFIER
+  type       :  simple_type        /*TODO*/
+             |  ARRAY LBRACKET simple_type_list RBRACKET OF type  /*TODO*/
+             |  RECORD field_list END       { $$ = instrec($1, $2); /*TODO*/}
+             |  POINT IDENTIFIER            { $$ = instpoint($1, $2); /*TODO*/}
              ;
   plus_op    :  PLUS | MINUS | OR              
              ;
@@ -172,11 +166,8 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
                     | term
                     | simple_expression plus_op term
                                             { $$ = binop($2, $1, $3); } 
-                                               /* TODO: coersion to float */
                     ;
   compare_op :  EQ | LT | GT | NE | LE | GE | IN      
-                                               /* TODO: coersion to boolean */
-  
              ;
   expression :  expression compare_op simple_expression
                                                 { $$ = binop($2, $1, $3); }
@@ -204,7 +195,8 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              |  NUMBER
              ;
   
-  lblock     :  LABEL numlist SEMICOLON cblock { $$ = $4; }
+  lblock     :  LABEL numlist SEMICOLON cblock 
+                                            { instlabel($2); $$ = $4; }
              |  cblock
              ;
   cblock     :  CONST cdef_list tblock { $$ = $3; }
@@ -213,15 +205,15 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   cdef       :  IDENTIFIER EQ constant       { instconst($1, $3); }
              ;
   cdef_list  :  cdef SEMICOLON cdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
+             |                    { $$ = NULL; } 
              ;
   tblock     :  TYPE tdef_list vblock { $$ = $3; }
              |  vblock
              ;
-  tdef       :  IDENTIFIER EQ type
+  tdef       :  IDENTIFIER EQ type           { insttype($1, $3); /*TODO*/}
              ;
   tdef_list  :  tdef SEMICOLON tdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
+             |                    { $$ = NULL; }
              ;
   vblock     :  VAR vdef_list block   { $$ = $3; }
              |  block
@@ -229,12 +221,12 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   vdef       :  id_list COLON type         { instvars($1, $3); }
              ;
   vdef_list  :  vdef SEMICOLON vdef_list
-             |  /* empty */       { $$ = NULL; } /* TODO: right? */
+             |                    { $$ = NULL; }
              ;
   block      :  BEGINBEGIN statement endpart
                                   { $$ = makeprogn($1,cons($2, $3)); }
              ;
-  label      :  NUMBER COLON statement
+  label      :  NUMBER COLON statement  
              ;
 
 %%
@@ -479,7 +471,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
       case LEOP:
       case GEOP:
       case INOP:
-        if (DEBUG) printf("\t\t\tassignop\n");
+        if (DEBUG) printf("\t\t\tcompare op\n");
         // TODO
         break;
       
@@ -828,6 +820,18 @@ TOKEN unaryop(TOKEN op, TOKEN lhs) {
   op->operands = lhs;
   return op;
 }
+
+
+/* instlabel installs a user label into the label table */
+void instlabel (TOKEN tok){
+  static int labels[1024];
+  do {
+    labels[labelnumber++] = tok->intval;
+    tok = tok->link;
+  } while (tok);
+}
+
+
 
 int wordaddress(int n, int wordsize)
   { return ((n + wordsize - 1) / wordsize) * wordsize; }

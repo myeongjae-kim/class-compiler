@@ -145,6 +145,7 @@ in        {return(maketoken(OPERATOR, IN));}
 "*"       {return(maketoken(OPERATOR, TIMES));}
 "/"       {return(maketoken(OPERATOR, DIVIDE));}
 
+"^"       {return(maketoken(OPERATOR, POINT));}
 
 ".."      {return(maketoken(DELIMITER, DOTDOT));}
 "."       {return(maketoken(OPERATOR, DOT));}

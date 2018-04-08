@@ -1,4 +1,5 @@
 /* TODO: if-else ambiguity, and other grammars */
+/* TODO: Print the structure of records correctly. */
 
 
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
@@ -144,20 +145,20 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              |  IDENTIFIER                     { $$ = cons($1, NULL); }
              ; 
   simple_type:  IDENTIFIER                     { $$ = findtype($1); }
-             |  LPAREN id_list RPAREN          { $$ = $2; }
+             |  LPAREN id_list RPAREN          { $$ = instenum($2); }
              |  constant DOTDOT constant  /* TODO */
              ;
   simple_type_list : simple_type COMMA simple_type_list { $$ = cons($1, $3); }
                    | simple_type                        {$$ = cons($1, NULL);}
                    ;
-  fields     :  id_list COLON type          { $$ = instfields($1, $3); /*TODO */}
+  fields     :  id_list COLON type          { $$ = instfields($1, $3); }
              ;
   field_list :  fields SEMICOLON field_list { $$ = cons($1, $3); }
              |  fields
              ;
-  type       :  simple_type        /*TODO*/
+  type       :  simple_type
              |  ARRAY LBRACKET simple_type_list RBRACKET OF type  /*TODO*/
-             |  RECORD field_list END       { $$ = instrec($1, $2); /*TODO*/}
+             |  RECORD field_list END       { $$ = instrec($1, $2); }
              |  POINT IDENTIFIER            { $$ = instpoint($1, $2); /*TODO*/}
              ;
   plus_op    :  PLUS | MINUS | OR              
@@ -832,6 +833,127 @@ void instlabel (TOKEN tok){
 }
 
 
+/* insttype will install a type name in symbol table.
+   typetok is a token containing symbol table pointers. */
+void insttype(TOKEN typename, TOKEN typetok) {
+  SYMBOL typesym = searchins(typename->stringval);
+  typesym->datatype = typetok->symtype;
+  typesym->size = typesym->datatype->size;
+}
+
+
+/* instpoint will install a pointer type in symbol table */
+TOKEN instpoint(TOKEN tok, TOKEN typename) {
+  SYMBOL pointsym = searchins(typename->stringval);
+  pointsym->kind = POINTERSYM;
+  pointsym->datatype = searchst(typename->stringval);
+  pointsym->size = alignsize(pointsym);
+
+  tok->symtype = pointsym;
+  return tok;
+}
+
+
+/* instrec will install a record definition.  Each token in the linked list
+   argstok has a pointer its type.  rectok is just a trash token to be
+   used to return the result in its symtype */
+TOKEN instrec(TOKEN rectok, TOKEN argstok) {
+  SYMBOL recsym = makesym(" ");
+  recsym->kind = RECORDSYM;
+
+  rectok->symtype = recsym;
+
+  TOKEN iter = argstok;
+  SYMBOL prev_field = recsym;
+  SYMBOL current_field = NULL;
+  int offset = 0;
+  int total_size = 0;
+  int is_first = 1;
+  while (iter != NULL) {
+    current_field = makesym(iter->stringval);
+    current_field->datatype = iter->symtype;
+    current_field->size = iter->symtype->size;
+    current_field->offset = offset;
+    offset += wordaddress(current_field->size, 8);
+
+    if(is_first) {
+      is_first = 0;
+
+      prev_field->datatype = current_field;
+      prev_field = prev_field->datatype;
+    } else {
+      prev_field->link = current_field;
+      prev_field = prev_field->link;
+    }
+
+    iter = iter->link;
+  }
+
+  recsym->size = offset;
+  
+  return rectok;
+}
+
+
+/* instfields will install type in a list idlist of field name tokens:
+   re, im: real    put the pointer to REAL in the RE, IM tokens.
+   typetok is a token whose symtype is a symbol table pointer.
+   Note that nconc() can be used to combine these lists after instrec() */
+TOKEN instfields(TOKEN idlist, TOKEN typetok) {
+  TOKEN iter = idlist;
+  do {
+    iter->symtype = typetok->symtype;
+    iter = iter->link;
+  } while(iter);
+
+  return idlist;
+}
+
+
+/* instenum installs an enumerated subrange in the symbol table,
+   e.g., type color = (red, white, blue)
+   by calling makesubrange and returning the token it returns. */
+TOKEN instenum(TOKEN idlist) {
+  TOKEN iter = idlist;
+  int num_const = 0;
+  TOKEN consttok = NULL;
+  SYMBOL sym_int = searchst("integer");
+
+  while(iter != NULL) {
+    // make a const token
+    consttok = (TOKEN)talloc();
+    consttok->tokentype = NUMBERTOK;
+    consttok->basicdt = INTEGER;
+    consttok->symtype = sym_int;
+    consttok->intval = num_const;
+
+    instconst(iter, consttok);
+    
+    num_const++;
+    consttok = NULL;
+    iter = iter->link;
+  }
+
+  return makesubrange((TOKEN)talloc(), 0, num_const - 1);
+}
+
+/* makesubrange makes a SUBRANGE symbol table entry, puts the pointer to it
+   into tok, and returns tok. */
+TOKEN makesubrange(TOKEN tok, int low, int high) {
+  SYMBOL symentry = makesym("SUBRANGE");
+
+  symentry->kind = SUBRANGE;
+  symentry->basicdt = INTEGER;
+  symentry->datatype = searchst("integer");
+  symentry->size = symentry->datatype->size;
+  symentry->lowbound = low;
+  symentry->highbound = high;
+  
+  tok->symtype = symentry;
+  tok->symentry = symentry;
+  return tok;
+}
+
 
 int wordaddress(int n, int wordsize)
   { return ((n + wordsize - 1) / wordsize) * wordsize; }
@@ -845,7 +967,8 @@ int main(void)          /*  */
   { int res;
     initsyms();
     res = yyparse();
-    printst();       /* to shorten, change to:  printstlevel(1);  */
+    /* printst();       [> to shorten, change to:  printstlevel(1);  <] */
+    printstlevel(1);       /* to shorten, change to:  printstlevel(1);  */
     printf("yyparse result = %8d\n", res);
     if (DEBUG & DB_PARSERES) dbugprinttok(parseresult);
     ppexpr(parseresult);           /* Pretty-print the result tree */

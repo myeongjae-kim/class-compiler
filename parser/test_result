@@ -1,0 +1,509 @@
+cons
+ token 31365744  ID        output  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31370112  NUM         1492  dtype  0  link 31370240
+ token 31370240  NUM         1776  dtype  0  link 0
+cons
+ token 31370752  ID            im  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31370624  ID            re  dtype  0  link 31370752
+ token 31370752  ID            im  dtype  0  link 0
+findtype
+ token 31370880  ID          real  dtype  0  link 0
+cons
+ token 31371904  ID          blue  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31371776  ID         white  dtype  0  link 31371904
+ token 31371904  ID          blue  dtype  0  link 0
+cons
+ token 31371648  ID           red  dtype  0  link 31371776
+ token 31371776  ID         white  dtype  0  link 31371904
+instconst
+ token 31371648  ID           red  dtype  0  link 31371776
+ token 31372032  NUM            0  dtype  0  link 0
+instconst
+ token 31371776  ID         white  dtype  0  link 31371904
+ token 31372192  NUM            1  dtype  0  link 0
+instconst
+ token 31371904  ID          blue  dtype  0  link 0
+ token 31372352  NUM            2  dtype  0  link 0
+cons
+ token 31373632  ID           age  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31373760  ID       integer  dtype  0  link 0
+cons
+ token 31373888  ID        friend  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31374016  ID            pp  dtype  0  link 0
+cons
+ token 31374144  ID      location  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31374272  ID       complex  dtype  0  link 0
+cons
+ token 31374400  ID      favorite  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31374528  ID         color  dtype  0  link 0
+cons
+ token 31374656  ID        salary  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31374784  ID          real  dtype  0  link 0
+cons
+ token 31374400  ID      favorite  dtype  0  link 31374656
+ token 31374656  ID        salary  dtype  0  link 0
+cons
+ token 31374144  ID      location  dtype  0  link 31374400
+ token 31374400  ID      favorite  dtype  0  link 31374656
+cons
+ token 31373888  ID        friend  dtype  0  link 31374144
+ token 31374144  ID      location  dtype  0  link 31374400
+cons
+ token 31373632  ID           age  dtype  0  link 31373888
+ token 31373888  ID        friend  dtype  0  link 31374144
+cons
+ token 31375744  ID             d  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31375616  ID             c  dtype  0  link 31375744
+ token 31375744  ID             d  dtype  0  link 0
+findtype
+ token 31375872  ID       complex  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31375872  ID       complex  dtype  0  link 0
+cons
+ token 31376320  ID           sum  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31376192  ID             i  dtype  0  link 31376320
+ token 31376320  ID           sum  dtype  0  link 0
+findtype
+ token 31376448  ID       integer  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31376448  ID       integer  dtype  0  link 0
+cons
+ token 31376768  ID            ac  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31377088  OP                dtype  0  link 0  operands 0
+ token 0  NULL
+findtype
+ token 31377440  ID       complex  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31377440  typ  2  whic   1  dty   0  sty 31377568 lnk 0  opnds 0
+cons
+ token 31377760  ID           aco  dtype  0  link 0
+ token 0  NULL
+findtype
+ token 31378368  ID         color  dtype  0  link 0
+cons
+ token 31378368  ID         color  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31378080  OP                dtype  0  link 31378368  operands 0
+ token 31378368  ID         color  dtype  0  link 0
+findtype
+ token 31378560  ID         color  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31378560  typ  2  whic   1  dty   0  sty 31378784 lnk 0  opnds 0
+cons
+ token 31379360  ID           ptr  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31379232  ID          fred  dtype  0  link 31379360
+ token 31379360  ID           ptr  dtype  0  link 0
+cons
+ token 31379104  ID          mary  dtype  0  link 31379232
+ token 31379232  ID          fred  dtype  0  link 31379360
+cons
+ token 31378976  ID          john  dtype  0  link 31379104
+ token 31379104  ID          mary  dtype  0  link 31379232
+findtype
+ token 31379488  ID            pp  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31379488  ID            pp  dtype  0  link 0
+cons
+ token 31380000  ID        people  dtype  0  link 0
+ token 0  NULL
+cons
+ token 31380320  OP                dtype  0  link 0  operands 0
+ token 0  NULL
+findtype
+ token 31380672  ID        person  dtype  0  link 0
+instvars
+ token 0  NULL
+ token 31380672  typ  2  whic   1  dty   0  sty 31380800 lnk 0  opnds 0
+check_const
+ token 31381184  ID          john  dtype  0  link 0
+makefuncall
+ token 31381120  OP       funcall  dtype  0  link 0  operands 31381056
+ token 31381056  ID           new  dtype  0  link 31381184
+ token 31381184  ID          john  dtype  0  link 0
+check_const
+ token 31381504  ID          mary  dtype  0  link 0
+makefuncall
+ token 31381440  OP       funcall  dtype  0  link 0  operands 31381376
+ token 31381376  ID           new  dtype  0  link 31381504
+ token 31381504  ID          mary  dtype  0  link 0
+check_const
+ token 31381824  ID          fred  dtype  0  link 0
+makefuncall
+ token 31381760  OP       funcall  dtype  0  link 0  operands 31381696
+ token 31381696  ID           new  dtype  0  link 31381824
+ token 31381824  ID          fred  dtype  0  link 0
+check_const
+ token 31382336  ID          blue  dtype  0  link 0
+			assignop
+binop
+ token 31382272  OP            :=  dtype  0  link 0  operands 31382016
+ token 31382016  ID          john  dtype  0  link 31382336
+ token 31382336  NUM            2  dtype  0  link 0
+			assignop
+binop
+ token 31382720  OP            :=  dtype  0  link 0  operands 31382464
+ token 31382464  ID          john  dtype  0  link 31382784
+ token 31382784  NUM           19  dtype  0  link 0
+check_const
+ token 31383360  ID          mary  dtype  0  link 0
+			assignop
+binop
+ token 31383296  OP            :=  dtype  0  link 0  operands 31383040
+ token 31383040  ID          john  dtype  0  link 31383360
+ token 31383360  ID          mary  dtype  0  link 0
+			assignop
+binop
+ token 31383744  OP            :=  dtype  0  link 0  operands 31383488
+ token 31383488  ID          john  dtype  0  link 31383808
+ token 31383808  NUM 4.000000e+04  dtype  1  link 0
+			assignop
+binop
+ token 31384320  OP            :=  dtype  0  link 0  operands 31383936
+ token 31383936  ID          john  dtype  0  link 31384384
+ token 31384384  NUM            3  dtype  0  link 0
+			assignop
+binop
+ token 31384768  OP            :=  dtype  0  link 0  operands 31384512
+ token 31384512  ID          mary  dtype  0  link 31384832
+ token 31384832  NUM           21  dtype  0  link 0
+check_const
+ token 31385280  ID          fred  dtype  0  link 0
+			assignop
+binop
+ token 31385216  OP            :=  dtype  0  link 0  operands 31384960
+ token 31384960  ID          mary  dtype  0  link 31385280
+ token 31385280  ID          fred  dtype  0  link 0
+			assignop
+binop
+ token 31385792  OP            :=  dtype  0  link 0  operands 31385536
+ token 31385536  ID          fred  dtype  0  link 31385856
+ token 31385856  NUM           20  dtype  0  link 0
+			assignop
+binop
+ token 31386240  OP            :=  dtype  0  link 0  operands 31385984
+ token 31385984  ID          fred  dtype  0  link 31386304
+ token 31386304  typ  2  whic  15  dty   0  sty 0 lnk 0  opnds 0
+			assignop
+binop
+ token 31387200  OP            :=  dtype  0  link 0  operands 31386432
+ token 31386432  ID          john  dtype  0  link 31387264
+ token 31387264  NUM 4.500000e+00  dtype  1  link 0
+			assignop
+binop
+ token 31387776  OP            :=  dtype  0  link 0  operands 31387392
+ token 31387392  ID            ac  dtype  0  link 31387840
+ token 31387840  ID          john  dtype  0  link 0
+check_const
+ token 31388288  ID          john  dtype  0  link 0
+			assignop
+binop
+ token 31388224  OP            :=  dtype  0  link 0  operands 31388160
+ token 31388160  ID           ptr  dtype  0  link 31388288
+ token 31388288  ID          john  dtype  0  link 0
+			assignop
+binop
+ token 31388480  OP            :=  dtype  0  link 0  operands 31388416
+ token 31388416  ID           sum  dtype  0  link 31388544
+ token 31388544  NUM            0  dtype  0  link 0
+			assignop
+binop
+ token 31388736  OP            :=  dtype  0  link 0  operands 31388672
+ token 31388672  ID             i  dtype  0  link 31388800
+ token 31388800  NUM            1  dtype  0  link 0
+check_const
+ token 31388992  ID           ptr  dtype  0  link 0
+			compare op
+binop
+ token 31389056  OP            <>  dtype  0  link 0  operands 31388992
+ token 31388992  ID           ptr  dtype  0  link 31389120
+ token 31389120  typ  2  whic  15  dty   0  sty 0 lnk 0  opnds 0
+check_const
+ token 31389440  ID           sum  dtype  0  link 0
+			plus_op
+binop
+ token 31389504  OP             +  dtype  0  link 0  operands 31389440
+ token 31389440  ID           sum  dtype  0  link 31389568
+ token 31389568  ID           ptr  dtype  0  link 0
+			assignop
+binop
+ token 31389376  OP            :=  dtype  0  link 0  operands 31389312
+ token 31389312  ID           sum  dtype  0  link 31389504
+ token 31389504  OP             +  dtype  0  link 0  operands 31389440
+check_const
+ token 31390016  ID             i  dtype  0  link 0
+			assignop
+binop
+ token 31390272  OP            :=  dtype  0  link 0  operands 31389888
+ token 31389888  ID        people  dtype  0  link 31390336
+ token 31390336  ID           ptr  dtype  0  link 0
+check_const
+ token 31390784  ID             i  dtype  0  link 0
+check_const
+ token 31390912  ID         white  dtype  0  link 0
+cons
+ token 31390784  ID             i  dtype  0  link 31390912
+ token 31390912  NUM            1  dtype  0  link 0
+			assignop
+binop
+ token 31391040  OP            :=  dtype  0  link 0  operands 31390656
+ token 31390656  ID           aco  dtype  0  link 31391104
+ token 31391104  ID          john  dtype  0  link 0
+			assignop
+binop
+ token 31391488  OP            :=  dtype  0  link 0  operands 31391424
+ token 31391424  ID           ptr  dtype  0  link 31391552
+ token 31391552  ID           ptr  dtype  0  link 0
+check_const
+ token 31392000  ID             i  dtype  0  link 0
+			plus_op
+binop
+ token 31392064  OP             +  dtype  0  link 0  operands 31392000
+ token 31392000  ID             i  dtype  0  link 31392128
+ token 31392128  NUM            1  dtype  0  link 0
+			assignop
+binop
+ token 31391936  OP            :=  dtype  0  link 0  operands 31391872
+ token 31391872  ID             i  dtype  0  link 31392064
+ token 31392064  OP             +  dtype  0  link 0  operands 31392000
+cons
+ token 31391936  OP            :=  dtype  0  link 0  operands 31391872
+ token 0  NULL
+cons
+ token 31391488  OP            :=  dtype  0  link 31391936  operands 31391424
+ token 31391936  OP            :=  dtype  0  link 0  operands 31391872
+cons
+ token 31391040  OP            :=  dtype  0  link 31391488  operands 31390656
+ token 31391488  OP            :=  dtype  0  link 31391936  operands 31391424
+cons
+ token 31390272  OP            :=  dtype  0  link 31391040  operands 31389888
+ token 31391040  OP            :=  dtype  0  link 31391488  operands 31390656
+cons
+ token 31389376  OP            :=  dtype  0  link 31390272  operands 31389312
+ token 31390272  OP            :=  dtype  0  link 31391040  operands 31389888
+makeprogn
+ token 31389248  OP         progn  dtype  0  link 0  operands 31389376
+ token 31389376  OP            :=  dtype  0  link 31390272  operands 31389312
+makefuncall
+ token 31392384  OP       funcall  dtype  0  link 0  operands 31392320
+ token 31392320  ID         write  dtype  0  link 31392448
+ token 31392448  STR         i =   dtype  2  link 0
+check_const
+ token 31392768  ID             i  dtype  0  link 0
+makefuncall
+ token 31392704  OP       funcall  dtype  0  link 0  operands 31392640
+ token 31392640  ID       writeln  dtype  0  link 31392768
+ token 31392768  ID             i  dtype  0  link 0
+makefuncall
+ token 31393024  OP       funcall  dtype  0  link 0  operands 31392960
+ token 31392960  ID         write  dtype  0  link 31393088
+ token 31393088  STR Sum of ages =   dtype  2  link 0
+check_const
+ token 31393408  ID           sum  dtype  0  link 0
+makefuncall
+ token 31393344  OP       funcall  dtype  0  link 0  operands 31393280
+ token 31393280  ID       writeln  dtype  0  link 31393408
+ token 31393408  ID           sum  dtype  0  link 0
+makefuncall
+ token 31393664  OP       funcall  dtype  0  link 0  operands 31393600
+ token 31393600  ID         write  dtype  0  link 31393728
+ token 31393728  STR Fred loc im =   dtype  2  link 0
+makefuncall
+ token 31393984  OP       funcall  dtype  0  link 0  operands 31393920
+ token 31393920  ID       writeln  dtype  0  link 31394048
+ token 31394048  ID          fred  dtype  0  link 0
+check_const
+ token 31394624  ID           sum  dtype  0  link 0
+			compare op
+binop
+ token 31394688  OP             <  dtype  0  link 0  operands 31394624
+ token 31394624  ID           sum  dtype  0  link 31394752
+ token 31394752  NUM            3  dtype  0  link 0
+cons
+ token 31394560  typ  2  whic  13  dty   0  sty 0 lnk 0  opnds 0
+ token 0  NULL
+cons
+ token 31393984  OP       funcall  dtype  0  link 31394560  operands 31393920
+ token 31394560  typ  2  whic  13  dty   0  sty 0 lnk 0  opnds 0
+cons
+ token 31393664  OP       funcall  dtype  0  link 31393984  operands 31393600
+ token 31393984  OP       funcall  dtype  0  link 31394560  operands 31393920
+cons
+ token 31393344  OP       funcall  dtype  0  link 31393664  operands 31393280
+ token 31393664  OP       funcall  dtype  0  link 31393984  operands 31393600
+cons
+ token 31393024  OP       funcall  dtype  0  link 31393344  operands 31392960
+ token 31393344  OP       funcall  dtype  0  link 31393664  operands 31393280
+cons
+ token 31392704  OP       funcall  dtype  0  link 31393024  operands 31392640
+ token 31393024  OP       funcall  dtype  0  link 31393344  operands 31392960
+cons
+ token 31392384  OP       funcall  dtype  0  link 31392704  operands 31392320
+ token 31392704  OP       funcall  dtype  0  link 31393024  operands 31392640
+cons
+ token 31388928  typ  2  whic  28  dty   0  sty 0 lnk 31392384  opnds 0
+ token 31392384  OP       funcall  dtype  0  link 31392704  operands 31392320
+cons
+ token 31388736  OP            :=  dtype  0  link 31388928  operands 31388672
+ token 31388928  typ  2  whic  28  dty   0  sty 0 lnk 31392384  opnds 0
+cons
+ token 31388480  OP            :=  dtype  0  link 31388736  operands 31388416
+ token 31388736  OP            :=  dtype  0  link 31388928  operands 31388672
+cons
+ token 31388224  OP            :=  dtype  0  link 31388480  operands 31388160
+ token 31388480  OP            :=  dtype  0  link 31388736  operands 31388416
+cons
+ token 31387776  OP            :=  dtype  0  link 31388224  operands 31387392
+ token 31388224  OP            :=  dtype  0  link 31388480  operands 31388160
+cons
+ token 31387200  OP            :=  dtype  0  link 31387776  operands 31386432
+ token 31387776  OP            :=  dtype  0  link 31388224  operands 31387392
+cons
+ token 31386240  OP            :=  dtype  0  link 31387200  operands 31385984
+ token 31387200  OP            :=  dtype  0  link 31387776  operands 31386432
+cons
+ token 31385408  NUM         1776  dtype  0  link 31386240
+ token 31386240  OP            :=  dtype  0  link 31387200  operands 31385984
+cons
+ token 31385216  OP            :=  dtype  0  link 31385408  operands 31384960
+ token 31385408  NUM         1776  dtype  0  link 31386240
+cons
+ token 31384768  OP            :=  dtype  0  link 31385216  operands 31384512
+ token 31385216  OP            :=  dtype  0  link 31385408  operands 31384960
+cons
+ token 31384320  OP            :=  dtype  0  link 31384768  operands 31383936
+ token 31384768  OP            :=  dtype  0  link 31385216  operands 31384512
+cons
+ token 31383744  OP            :=  dtype  0  link 31384320  operands 31383488
+ token 31384320  OP            :=  dtype  0  link 31384768  operands 31383936
+cons
+ token 31382912  NUM         1492  dtype  0  link 31383744
+ token 31383744  OP            :=  dtype  0  link 31384320  operands 31383488
+cons
+ token 31382720  OP            :=  dtype  0  link 31382912  operands 31382464
+ token 31382912  NUM         1492  dtype  0  link 31383744
+cons
+ token 31382272  OP            :=  dtype  0  link 31382720  operands 31382016
+ token 31382720  OP            :=  dtype  0  link 31382912  operands 31382464
+cons
+ token 31381760  OP       funcall  dtype  0  link 31382272  operands 31381696
+ token 31382272  OP            :=  dtype  0  link 31382720  operands 31382016
+cons
+ token 31381440  OP       funcall  dtype  0  link 31381760  operands 31381376
+ token 31381760  OP       funcall  dtype  0  link 31382272  operands 31381696
+cons
+ token 31381120  OP       funcall  dtype  0  link 31381440  operands 31381056
+ token 31381440  OP       funcall  dtype  0  link 31381760  operands 31381376
+makeprogn
+ token 31380992  OP         progn  dtype  0  link 0  operands 31381120
+ token 31381120  OP       funcall  dtype  0  link 31381440  operands 31381056
+makeprogn
+ token 31365680  OP         progn  dtype  0  link 0  operands 31365744
+ token 31365744  ID        output  dtype  0  link 0
+makeprogram
+ token 31365616  ID        graph1  dtype  0  link 31365680
+ token 31365680  OP         progn  dtype  0  link 31380992  operands 31365744
+ token 31380992  OP         progn  dtype  0  link 0  operands 31381120
+Symbol table level 1
+ 31371296     complex  TYPE   typ 31371008  lvl  1  siz    16  off     0
+(RECORD (re real)
+        (im real))
+ 31372096         red  CONST  typ INTEGER  val  0
+ 31372256       white  CONST  typ INTEGER  val  1
+ 31372416        blue  CONST  typ INTEGER  val  2
+ 31372672       color  TYPE   typ 31372576  lvl  1  siz     4  off     0
+  0 ..   2
+ 31373184      person  TYPE   typ 31374912  lvl  1  siz    48  off     0
+(RECORD (age integer)
+        (friend (^ person))
+        (location (RECORD (re real)
+                          (im real)))
+        (favorite   0 ..   2)
+        (salary real))
+ 31373280          pp  TYPE   typ 31373088  lvl  1  siz     8  off     0
+(^ person)
+ 31376000           c  VAR    0 typ 31371296  lvl  1  siz    16  off     0
+(RECORD (re real)
+        (im real))
+ 31376096           d  VAR    0 typ 31371296  lvl  1  siz    16  off    16
+(RECORD (re real)
+        (im real))
+ 31376576           i  VAR    0 typ integer  lvl  1  siz     4  off    32
+ 31376672         sum  VAR    0 typ integer  lvl  1  siz     4  off    36
+ 31377664          ac  VAR    0 typ 31377568  lvl  1  siz   160  off    48
+(ARRAY   1 ..  10 (RECORD (re real)
+                          (im real)))
+ 31378880         aco  VAR    0 typ 31378784  lvl  1  siz   120  off   208
+(ARRAY   1 ..  10 (ARRAY   0 ..   2   0 ..   2))
+ 31379616        john  VAR    0 typ 31373280  lvl  1  siz     8  off   328
+(^ person)
+ 31379712        mary  VAR    0 typ 31373280  lvl  1  siz     8  off   336
+(^ person)
+ 31379808        fred  VAR    0 typ 31373280  lvl  1  siz     8  off   344
+(^ person)
+ 31379904         ptr  VAR    0 typ 31373280  lvl  1  siz     8  off   352
+(^ person)
+ 31380896      people  VAR    0 typ 31380800  lvl  1  siz   960  off   368
+(ARRAY   1 ..  20 (RECORD (age integer)
+                          (friend (^ person))
+                          (location (RECORD (re real)
+                                            (im real)))
+                          (favorite   0 ..   2)
+                          (salary real)))
+yyparse result =        0
+ token 31365552  OP       program  dtype  0  link 0  operands 31365616
+(program graph1 (progn output)
+                (progn (funcall new john)
+                       (funcall new mary)
+                       (funcall new fred)
+                       (:= john 2)
+                       (:= john 19)
+                       1492
+                       (:= john 4.000000e+04)
+                       (:= john 3)
+                       (:= mary 21)
+                       (:= mary fred)
+                       1776
+                       (:= fred res 15)
+                       (:= john 4.500000e+00)
+                       (:= ac john)
+                       (:= ptr john)
+                       (:= sum 0)
+                       (:= i 1)
+                       res 28
+                       (funcall write 'i = ')
+                       (funcall writeln i)
+                       (funcall write 'Sum of ages = ')
+                       (funcall writeln sum)
+                       (funcall write 'Fred loc im = ')
+                       (funcall writeln fred)
+                       res 13))

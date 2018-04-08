@@ -146,7 +146,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              ; 
   simple_type:  IDENTIFIER                     { $$ = findtype($1); }
              |  LPAREN id_list RPAREN          { $$ = instenum($2); }
-             |  constant DOTDOT constant  /* TODO */
+             |  constant DOTDOT constant       { $$ = instdotdot($1, $2, $3); }
              ;
   simple_type_list : simple_type COMMA simple_type_list { $$ = cons($1, $3); }
                    | simple_type                        {$$ = cons($1, NULL);}
@@ -157,7 +157,8 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              |  fields
              ;
   type       :  simple_type
-             |  ARRAY LBRACKET simple_type_list RBRACKET OF type  /*TODO*/
+             |  ARRAY LBRACKET simple_type_list RBRACKET OF type
+                                            { $$ = instarray($3, $6); }
              |  RECORD field_list END       { $$ = instrec($1, $2); }
              |  POINT IDENTIFIER            { $$ = instpoint($1, $2); /*TODO*/}
              ;
@@ -837,6 +838,7 @@ void instlabel (TOKEN tok){
    typetok is a token containing symbol table pointers. */
 void insttype(TOKEN typename, TOKEN typetok) {
   SYMBOL typesym = searchins(typename->stringval);
+  typesym->kind = TYPESYM;
   typesym->datatype = typetok->symtype;
   typesym->size = typesym->datatype->size;
 }
@@ -844,9 +846,10 @@ void insttype(TOKEN typename, TOKEN typetok) {
 
 /* instpoint will install a pointer type in symbol table */
 TOKEN instpoint(TOKEN tok, TOKEN typename) {
-  SYMBOL pointsym = searchins(typename->stringval);
+  SYMBOL pointsym = makesym(" ");
   pointsym->kind = POINTERSYM;
-  pointsym->datatype = searchst(typename->stringval);
+
+  pointsym->datatype = searchins(typename->stringval);
   pointsym->size = alignsize(pointsym);
 
   tok->symtype = pointsym;
@@ -910,6 +913,15 @@ TOKEN instfields(TOKEN idlist, TOKEN typetok) {
 }
 
 
+/* instdotdot installs a .. subrange in the symbol table.
+   dottok is a (now) unused token that is recycled. */
+TOKEN instdotdot(TOKEN lowtok, TOKEN dottok, TOKEN hightok) {
+  /* TODO? */
+  memset(dottok, 0, sizeof(*dottok));
+  return makesubrange(dottok, lowtok->intval, hightok->intval);
+}
+
+
 /* instenum installs an enumerated subrange in the symbol table,
    e.g., type color = (red, white, blue)
    by calling makesubrange and returning the token it returns. */
@@ -955,6 +967,72 @@ TOKEN makesubrange(TOKEN tok, int low, int high) {
 }
 
 
+TOKEN reverse_tok_list_recur(TOKEN prev, TOKEN list, TOKEN* new_first){ 
+  if(list == NULL) {
+    *new_first = prev;
+  } else {
+    TOKEN new_prev = reverse_tok_list_recur(list, list->link, new_first);
+    new_prev->link = prev;
+  }
+  return prev;
+}
+
+TOKEN reverse_tok_list(TOKEN list){ 
+  if(list->link == NULL) {
+    return list;
+  }
+  TOKEN new_first = NULL;
+
+  reverse_tok_list_recur(list, list->link, &new_first);
+  list->link = NULL;
+  return new_first;
+}
+
+/* instarray installs an array declaration into the symbol table.
+   bounds points to a SUBRANGE symbol table entry.
+   The symbol table pointer is returned in token typetok. */
+TOKEN instarray(TOKEN bounds, TOKEN typetok) {
+  TOKEN reversed_bounds = reverse_tok_list(bounds);
+  TOKEN bound_iter = reversed_bounds;
+
+  SYMBOL before_arysym = NULL;
+  SYMBOL arysym = NULL;
+
+  while(bound_iter != NULL) {
+    SYMBOL bound_sym = bound_iter->symtype;
+
+    while(bound_sym->kind != SUBRANGE) {
+      bound_sym = bound_sym->datatype;
+    }
+
+    arysym = makesym(" ");
+    arysym->kind = ARRAYSYM;
+    /* arysym->datatype = bound_sym; */
+    arysym->datatype = before_arysym == NULL ? typetok->symtype : bound_sym;
+    arysym->lowbound = bound_sym->lowbound;
+    arysym->highbound = bound_sym->highbound;
+    arysym->size = arysym->datatype->size * 
+                      (arysym->highbound - arysym->lowbound + 1);
+    
+    if(before_arysym) {
+      arysym->size *= before_arysym->highbound - before_arysym->lowbound + 1;
+      arysym->datatype = before_arysym;
+    }
+
+    bound_iter = bound_iter->link;
+    before_arysym = arysym;
+  }
+
+  memset(typetok, 0, sizeof(*typetok));
+
+  typetok->tokentype = RESERVED;
+  typetok->symtype = arysym;
+  typetok->whichval = ARRAY - RESERVED_BIAS;
+
+  return typetok;
+}
+
+
 int wordaddress(int n, int wordsize)
   { return ((n + wordsize - 1) / wordsize) * wordsize; }
  
@@ -963,8 +1041,29 @@ void yyerror (char const *s)
   fprintf (stderr, "%s\n", s);
 }
 
+void recur_test() {
+  TOKEN a = (TOKEN)talloc();
+  TOKEN b = (TOKEN)talloc();
+  TOKEN c = (TOKEN)talloc();
+  TOKEN d = (TOKEN)talloc();
+
+  strcpy(a->stringval, "a");
+  strcpy(b->stringval, "b");
+  strcpy(c->stringval, "c");
+  strcpy(d->stringval, "d");
+
+  a->link = b;
+  b->link = c;
+  c->link = d;
+
+  TOKEN rt = reverse_tok_list(a);
+
+  return;
+}
+
 int main(void)          /*  */
   { int res;
+    recur_test();
     initsyms();
     res = yyparse();
     /* printst();       [> to shorten, change to:  printstlevel(1);  <] */

@@ -1,5 +1,5 @@
 /* TODO: if-else ambiguity, and other grammars */
-/* TODO: Print the structure of records correctly. */
+/* TODO: Now get rid of label 1492: after john^.age := 19 */
 
 
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
@@ -180,8 +180,8 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              ;
   variable   :  IDENTIFIER    
              |  variable LBRACKET expr_list RBRACKET
-             |  variable DOT IDENTIFIER
-             |  variable POINT
+             |  variable DOT IDENTIFIER    { $$ = reducedot($1, $2, $3); }
+             |  variable POINT             { $$ = dopoint($1, $2); }
              ;
   funcall    :  IDENTIFIER LPAREN expr_list RPAREN 
                                             { $$ = makefuncall($2, $1, $3); }
@@ -657,7 +657,41 @@ TOKEN makefor(int sign, TOKEN tok, TOKEN asg, TOKEN tokb, TOKEN endexpr,
   return asg;
 }
 
+TOKEN makenewfuncall(TOKEN asg, TOKEN fn_name, TOKEN args) {
+  asg->tokentype = OPERATOR;
+  asg->whichval = ASSIGNOP;
+  asg->operands = args;
+
+  TOKEN funcall = (TOKEN)talloc();
+  funcall->tokentype = OPERATOR;
+  funcall->whichval = FUNCALLOP;
+
+  args->link = funcall;
+
+  funcall->operands = fn_name;
+
+  TOKEN size = (TOKEN)talloc();
+  size->tokentype = NUMBERTOK;
+  size->basicdt = INTEGER;
+  size->symtype = searchst("integer");
+
+  SYMBOL iter = searchst(args->stringval);
+  while(iter->kind != POINTERSYM) {
+    iter = iter->datatype;
+  }
+
+  size->intval = iter->datatype->size;
+
+  fn_name->link = size;
+
+  return asg;
+}
+
 TOKEN makefuncall(TOKEN tok, TOKEN fn, TOKEN args) {
+  if (strcmp(fn->stringval, "new") == 0) {
+    return makenewfuncall(tok, fn, args);
+  }
+
   SYMBOL fn_sym = searchst(fn->stringval);
 
   tok->tokentype = OPERATOR;
@@ -877,7 +911,11 @@ TOKEN instrec(TOKEN rectok, TOKEN argstok) {
     current_field->datatype = iter->symtype;
     current_field->size = iter->symtype->size;
     current_field->offset = offset;
-    offset += wordaddress(current_field->size, 8);
+
+    offset += current_field->size;
+    if(iter->link && (iter->link->symtype->size + offset) % 8 != 0) {
+      offset = wordaddress(offset, 8);
+    }
 
     if(is_first) {
       is_first = 0;
@@ -916,7 +954,6 @@ TOKEN instfields(TOKEN idlist, TOKEN typetok) {
 /* instdotdot installs a .. subrange in the symbol table.
    dottok is a (now) unused token that is recycled. */
 TOKEN instdotdot(TOKEN lowtok, TOKEN dottok, TOKEN hightok) {
-  /* TODO? */
   memset(dottok, 0, sizeof(*dottok));
   return makesubrange(dottok, lowtok->intval, hightok->intval);
 }
@@ -1032,6 +1069,48 @@ TOKEN instarray(TOKEN bounds, TOKEN typetok) {
   return typetok;
 }
 
+/* dopoint handles a ^ operator.  john^ becomes (^ john) with type record
+   tok is a (now) unused token that is recycled. */
+TOKEN dopoint(TOKEN var, TOKEN tok) {
+  tok->operands = var;
+
+  //TODO
+  SYMBOL iter = searchst(var->stringval);
+  while(iter->kind != POINTERSYM) {
+    iter = iter->datatype;
+  }
+  tok->symtype = iter->datatype;
+  return tok;
+}
+
+
+/* reducedot handles a record reference.
+   dot is a (now) unused token that is recycled. */
+TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
+  TOKEN aref = dot;
+
+  memset(aref, 0, sizeof(*aref));
+  aref->tokentype = OPERATOR;
+  aref->whichval = AREFOP;
+  aref->operands = var;
+  aref->symtype = var->symtype;
+
+  SYMBOL rec_sym = var->symtype;
+  SYMBOL iter_field = rec_sym->datatype->datatype;
+
+  while(strcmp(iter_field->namestring, field->stringval) != 0) {
+    iter_field = iter_field->link;
+  }
+
+  TOKEN offset_tok = (TOKEN)talloc();
+  offset_tok->tokentype = NUMBERTOK;
+  offset_tok->intval = iter_field->offset;
+
+  var->link = offset_tok;
+
+  return aref;
+}
+
 
 int wordaddress(int n, int wordsize)
   { return ((n + wordsize - 1) / wordsize) * wordsize; }
@@ -1041,29 +1120,9 @@ void yyerror (char const *s)
   fprintf (stderr, "%s\n", s);
 }
 
-void recur_test() {
-  TOKEN a = (TOKEN)talloc();
-  TOKEN b = (TOKEN)talloc();
-  TOKEN c = (TOKEN)talloc();
-  TOKEN d = (TOKEN)talloc();
-
-  strcpy(a->stringval, "a");
-  strcpy(b->stringval, "b");
-  strcpy(c->stringval, "c");
-  strcpy(d->stringval, "d");
-
-  a->link = b;
-  b->link = c;
-  c->link = d;
-
-  TOKEN rt = reverse_tok_list(a);
-
-  return;
-}
 
 int main(void)          /*  */
   { int res;
-    recur_test();
     initsyms();
     res = yyparse();
     /* printst();       [> to shorten, change to:  printstlevel(1);  <] */

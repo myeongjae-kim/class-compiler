@@ -1,11 +1,7 @@
-{ program 4.9 from Jensen & Wirth       -- file graph1.pas }
+{ pasrec.pas      program to test record operations      06 Aug 09 }
 
 program graph1(output);
 label 1492, 1776;
-const d = 0.0625; {1/16, 16 lines for interval [x,x+1]}
-      s = 32; {32 character widths for interval [y,y+1]}
-      h = 34; {character position of x-axis}
-      c = 6.28318; {2*pi}  lim = 32;
 type complex = record re, im: real end;
      color = (red, white, blue);
      pp = ^ person;
@@ -14,13 +10,16 @@ type complex = record re, im: real end;
                      location: complex;
                      favorite: color;
                      salary:   real end;
-var x,y : real;  i,n : integer;
+var c,d: complex; i, sum: integer;
+    ac: array[1..10] of complex;
+    aco: array[1..10, color] of color;
+    john, mary, fred, ptr: pp;
+    people: array[1..20] of person;
 begin
-   for i := 0 to lim do
-      begin x := d*i; y := exp(-x)*sin(c*x);
-      n := round(s*y) + h;
-      repeat write(' ');  n := n-1
-      until n=0;
-      writeln('*')
-   end
+   new(john);
+   new(mary);
+   new(fred);
+1492:
+   john^.favorite := blue;
+   john^.age := 19
 end.

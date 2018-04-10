@@ -67,6 +67,9 @@ void instvars(TOKEN idlist, TOKEN typetok);
 TOKEN check_const(TOKEN id);
 TOKEN const_findtype(TOKEN id);
 
+#define MAX_LABEL 1024
+int labels[MAX_LABEL];
+
 %}
 
 /* Order of tokens corresponds to tokendefs.c; do not change */
@@ -83,7 +86,6 @@ TOKEN const_findtype(TOKEN id);
 %token CASE CONST DO DOWNTO ELSE END FILEFILE FOR FUNCTION GOTO IF LABEL NIL
 %token OF PACKED PROCEDURE PROGRAM RECORD REPEAT SET THEN TO TYPE UNTIL
 %token VAR WHILE WITH
-
 %%
 
 program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
@@ -196,9 +198,10 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   numlist    :  NUMBER COMMA numlist         { $$ = cons($1, $3); }
              |  NUMBER
              ;
-  
-  lblock     :  LABEL numlist SEMICOLON cblock 
-                                            { instlabel($2); $$ = $4; }
+  ldef_list  :  numlist SEMICOLON           { instlabel($1); }
+             ;
+  lblock     :  LABEL ldef_list cblock 
+                                            { $$ = $3; }
              |  cblock
              ;
   cblock     :  CONST cdef_list tblock { $$ = $3; }
@@ -229,6 +232,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
                                   { $$ = makeprogn($1,cons($2, $3)); }
              ;
   label      :  NUMBER COLON statement  
+                                  { $$ = dolabel($2, $1, $3); }
              ;
 
 %%
@@ -860,11 +864,12 @@ TOKEN unaryop(TOKEN op, TOKEN lhs) {
 
 /* instlabel installs a user label into the label table */
 void instlabel (TOKEN tok){
-  static int labels[1024];
-  do {
-    labels[labelnumber++] = tok->intval;
-    tok = tok->link;
-  } while (tok);
+  if(tok->link) {
+    instlabel(tok->link);
+  }
+
+  labels[labelnumber++] = tok->intval;
+  tok = tok->link;
 }
 
 
@@ -1109,6 +1114,48 @@ TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
   var->link = offset_tok;
 
   return aref;
+}
+
+
+/* dolabel is the action for a label of the form   <number>: <statement>
+   tok is a (now) unused token that is recycled. */
+TOKEN dolabel(TOKEN labeltok, TOKEN number, TOKEN statement) {
+  TOKEN progntok = (TOKEN)talloc();
+
+  progntok->tokentype = OPERATOR;
+  progntok->whichval = PROGNOP;
+
+  memset(labeltok, 0, sizeof(*labeltok));
+  labeltok->tokentype = OPERATOR;
+  labeltok->whichval = LABELOP;
+
+  progntok->operands = labeltok;
+
+  int num_inner_label;
+  for ( num_inner_label = 0;
+        num_inner_label < MAX_LABEL;
+        num_inner_label++ ) {
+    if (labels[num_inner_label] == number->intval) {
+      break;
+    }
+  }
+
+  if (num_inner_label >= MAX_LABEL) {
+    // Cannot find label
+    *((int*)0) = 0;
+  }
+
+  TOKEN num_label_tok = (TOKEN)talloc();
+  num_label_tok->tokentype = NUMBERTOK;
+  num_label_tok->basicdt = INTEGER;
+  num_label_tok->symtype = searchst("integer");
+  num_label_tok->intval = num_inner_label;
+
+  labeltok->operands = num_label_tok;
+  labeltok->link = statement;
+
+
+  return progntok;
 }
 
 

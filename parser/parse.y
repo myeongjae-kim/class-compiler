@@ -1,5 +1,5 @@
 /* TODO: if-else ambiguity, and other grammars */
-/* TODO: Now get rid of label 1492: after john^.age := 19 */
+/* TODO: Implement Arrayref */
 
 
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
@@ -66,6 +66,7 @@ TOKEN parseresult;
 void instvars(TOKEN idlist, TOKEN typetok);
 TOKEN check_const(TOKEN id);
 TOKEN const_findtype(TOKEN id);
+TOKEN nil_to_zero(TOKEN id);
 
 #define MAX_LABEL 1024
 int labels[MAX_LABEL];
@@ -130,7 +131,10 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   term       :  term times_op factor              { $$ = binop($2, $1, $3); }
              |  factor
              ;
-  unsigned_constant :  IDENTIFIER {check_const($1);}| NUMBER | NIL | STRING
+  unsigned_constant : IDENTIFIER {check_const($1);}
+                    | NUMBER 
+                    | NIL        { $$ = nil_to_zero($1); }
+                    | STRING
                     ;
   sign       :  PLUS
              |  MINUS
@@ -182,6 +186,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              ;
   variable   :  IDENTIFIER    
              |  variable LBRACKET expr_list RBRACKET
+                                           { $$ = arrayref($1, $2, $3, $4); }
              |  variable DOT IDENTIFIER    { $$ = reducedot($1, $2, $3); }
              |  variable POINT             { $$ = dopoint($1, $2); }
              ;
@@ -895,7 +900,6 @@ TOKEN instpoint(TOKEN tok, TOKEN typename) {
   return tok;
 }
 
-
 /* instrec will install a record definition.  Each token in the linked list
    argstok has a pointer its type.  rectok is just a trash token to be
    used to return the result in its symtype */
@@ -1080,7 +1084,13 @@ TOKEN dopoint(TOKEN var, TOKEN tok) {
   tok->operands = var;
 
   //TODO
-  SYMBOL iter = searchst(var->stringval);
+  SYMBOL iter = NULL;
+  if (var->tokentype == IDENTIFIERTOK) {
+    iter = searchst(var->stringval);
+  } else {
+    iter = var->symtype;
+  }
+
   while(iter->kind != POINTERSYM) {
     iter = iter->datatype;
   }
@@ -1088,6 +1098,44 @@ TOKEN dopoint(TOKEN var, TOKEN tok) {
   return tok;
 }
 
+
+int find_offset(SYMBOL first_field,
+                char* dst_field_name,
+                int* offset,
+                SYMBOL* dst_field_type) {
+
+  SYMBOL iter_field = first_field;
+
+  while(iter_field != NULL) {
+    if(iter_field->datatype->datatype &&
+       iter_field->datatype->datatype->kind == RECORDSYM) {
+
+      /* call function recursively */
+      int is_field_found = find_offset(
+                                iter_field->datatype->datatype->datatype,
+                                dst_field_name,
+                                offset,
+                                dst_field_type);
+      
+      if(is_field_found == 1) {
+        *dst_field_type = iter_field->datatype;
+        *offset += iter_field->offset;
+        return 1;
+      }
+    }
+
+    /*if dst field is found! */
+    if(strcmp(iter_field->namestring, dst_field_name) == 0) {
+      *dst_field_type = iter_field->datatype;
+      *offset += iter_field->offset;
+      return 1;
+    }
+
+    iter_field = iter_field->link;
+  }
+
+  return 0;
+}
 
 /* reducedot handles a record reference.
    dot is a (now) unused token that is recycled. */
@@ -1098,18 +1146,46 @@ TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
   aref->tokentype = OPERATOR;
   aref->whichval = AREFOP;
   aref->operands = var;
-  aref->symtype = var->symtype;
+  /* aref->symtype = var->symtype; */
 
+  if( ! var->symtype ) {
+    SYMBOL iter = searchst(var->stringval);
+    while(iter->kind != TYPESYM) {
+      iter = iter->datatype;
+    }
+
+    var->symtype = iter;
+  }
   SYMBOL rec_sym = var->symtype;
   SYMBOL iter_field = rec_sym->datatype->datatype;
 
+  int sub_offset = 0;
+  SYMBOL sub_field_type = NULL;
+  int is_sub_field_found = 0;
+
+  /* if there is no field, seg fault occurs */
   while(strcmp(iter_field->namestring, field->stringval) != 0) {
+    if(iter_field->datatype->datatype &&
+       iter_field->datatype->datatype->kind == RECORDSYM) {
+       is_sub_field_found = find_offset(
+                            iter_field->datatype->datatype->datatype,
+                            field->stringval,
+                            &sub_offset,
+                            &sub_field_type
+                            );
+
+       if(is_sub_field_found) {
+         break;
+       }
+     }
     iter_field = iter_field->link;
   }
 
   TOKEN offset_tok = (TOKEN)talloc();
   offset_tok->tokentype = NUMBERTOK;
-  offset_tok->intval = iter_field->offset;
+  /* offset_tok->intval = iter_field->offset + sub_offset; */
+  offset_tok->intval = is_sub_field_found ? sub_offset : iter_field->offset;
+  aref->symtype = is_sub_field_found ? sub_field_type : iter_field->datatype;
 
   var->link = offset_tok;
 
@@ -1157,6 +1233,27 @@ TOKEN dolabel(TOKEN labeltok, TOKEN number, TOKEN statement) {
 
   return progntok;
 }
+
+
+TOKEN nil_to_zero(TOKEN nil) {
+  memset(nil, 0, sizeof(*nil));
+
+  nil->tokentype = NUMBERTOK;
+  nil->basicdt = INTEGER;
+  nil->intval = 0;
+
+  return nil;
+}
+
+
+/* arrayref processes an array reference a[i]
+   subs is a list of subscript expressions.
+   tok and tokb are (now) unused tokens that are recycled. */
+TOKEN arrayref(TOKEN arr, TOKEN tok, TOKEN subs, TOKEN tokb) {
+  // TODO
+  return arr;
+}
+
 
 
 int wordaddress(int n, int wordsize)

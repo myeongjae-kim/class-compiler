@@ -1,7 +1,3 @@
-/* TODO: if-else ambiguity, and other grammars */
-/* TODO: Implement Arrayref */
-
-
 %{     /* pars1.y    Pascal Parser      Gordon S. Novak Jr.  ; 30 Jul 13   */
 
 /* Copyright (c) 2013 Gordon S. Novak Jr. and
@@ -67,6 +63,7 @@ void instvars(TOKEN idlist, TOKEN typetok);
 TOKEN check_const(TOKEN id);
 TOKEN const_findtype(TOKEN id);
 TOKEN nil_to_zero(TOKEN id);
+TOKEN optimize_progn(TOKEN progn_tok);
 
 #define MAX_LABEL 1024
 int labels[MAX_LABEL];
@@ -87,6 +84,9 @@ int labels[MAX_LABEL];
 %token CASE CONST DO DOWNTO ELSE END FILEFILE FOR FUNCTION GOTO IF LABEL NIL
 %token OF PACKED PROCEDURE PROGRAM RECORD REPEAT SET THEN TO TYPE UNTIL
 %token VAR WHILE WITH
+
+%nonassoc LOWER_THAN_ELSE
+%nonassoc ELSE
 %%
 
 program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
@@ -99,13 +99,20 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
                                        { $$ = makeprogn($1,cons($2, $3)); }
              |  IF expression THEN statement ELSE statement
                                        { $$ = makeif($1, $2, $4, $5); }
-             |  IF expression THEN statement
+             |  IF expression THEN statement  %prec LOWER_THAN_ELSE
+                                       { $$ = makeif($1, $2, $4, NULL); }
              |  variable ASSIGN expression { $$ = binop($2, $1, $3); }
              |  funcall
-             |  WHILE expression DO statement
+             |  WHILE expression DO statement 
+                                           { $$ = makewhile($1, $2, $3, $4); }
              |  REPEAT statement_list UNTIL expression
-                                         { $$ = makerepeat($1, $2, $3, $4);
+                                         { 
+                                           TOKEN opt = NULL;
+                                           $$ = makerepeat($1, $2, $3, $4);
                                            $$ = makeprogn($1, $$);
+
+                                           opt = optimize_progn($$);
+                                           $$ = opt ? opt : $$;
                                          }
              |  FOR IDENTIFIER ASSIGN expression TO expression DO statement
                        {
@@ -119,7 +126,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
                                         binop($3, $2, $4), $5, $6, $7, $8);
                          $$ = makeprogn($1, $$);
                        }
-             |  GOTO NUMBER
+             |  GOTO NUMBER { $$ = dogoto($1, $2); }
              |  label
              ;
   statement_list :  statement SEMICOLON statement_list { $$ = cons($1, $3); }
@@ -234,7 +241,10 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              |                    { $$ = NULL; }
              ;
   block      :  BEGINBEGIN statement endpart
-                                  { $$ = makeprogn($1,cons($2, $3)); }
+                                  { $$ = makeprogn($1,cons($2, $3)); 
+                                    TOKEN opt = optimize_progn($$);
+                                    $$ = opt ? opt : $$;
+                                  }
              ;
   label      :  NUMBER COLON statement  
                                   { $$ = dolabel($2, $1, $3); }
@@ -317,6 +327,15 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
       case ANDOP:
 
 
+      case EQOP:
+      case LTOP:
+      case GTOP:
+      case NEOP:
+      case LEOP:
+      case GEOP:
+      case INOP:
+
+
         if(DEBUG) printf("\t\t\tplus_op\n");
 
         // both are number constant
@@ -347,8 +366,11 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
 
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
+            coerce_tok->operands = lhs;
+            coerce_tok->link = lhs->link;
+            lhs->link = NULL;
+
+            op->operands = coerce_tok;
 
             op->symtype = real_sym;
           } else if( (lhs_sym == real_sym || lhs_sym->datatype == real_sym)
@@ -397,8 +419,9 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
 
-            coerce_tok->operands = rhs;
-            lhs->link = coerce_tok;
+            coerce_tok->operands = lhs;
+            coerce_tok->link = lhs->link;
+            lhs->link = NULL;
 
             op->symtype = real_sym;
           } else if((lhs_sym == real_sym || lhs_sym->datatype == real_sym)
@@ -475,17 +498,17 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
 
         break;
       
-      case EQOP:
-      case LTOP:
-      case GTOP:
-      case NEOP:
-      case LEOP:
-      case GEOP:
-      case INOP:
-        if (DEBUG) printf("\t\t\tcompare op\n");
-        // TODO
-        break;
-      
+      /* case EQOP:
+       * case LTOP:
+       * case GTOP:
+       * case NEOP:
+       * case LEOP:
+       * case GEOP:
+       * case INOP:
+       *   if (DEBUG) printf("\t\t\tcompare op\n");
+       *   // TODO
+       *   break;
+       *  */
 
       deafult:
         if (DEBUG) printf("\t\t\t Token not found. op->whichval: %d\n",
@@ -530,6 +553,7 @@ TOKEN makeprogn(TOKEN tok, TOKEN statements)
          dbugprinttok(tok);
          dbugprinttok(statements);
        };
+
      return tok;
    }
 
@@ -593,6 +617,52 @@ void instvars(TOKEN idlist, TOKEN typetok) {
 
 }
 
+TOKEN optimize_progn(TOKEN progn_tok) {
+  int is_optimized = 0;
+  // optimize
+  if (progn_tok->operands->tokentype == OPERATOR
+        && progn_tok->operands->whichval == PROGNOP) {
+
+    progn_tok = progn_tok->operands;
+
+    TOKEN link_iter = progn_tok->operands;
+    TOKEN link_iter_next = link_iter->link;
+
+    while(link_iter_next != NULL) {
+      link_iter = link_iter_next;
+      link_iter_next = link_iter_next->link;
+    }
+
+    link_iter->link = progn_tok->link;
+    progn_tok->link = NULL;
+
+    is_optimized = 1;
+  }
+
+  if (progn_tok->operands->link
+      && progn_tok->operands->link->tokentype == OPERATOR
+      && progn_tok->operands->link->whichval == PROGNOP) {
+
+
+    TOKEN link_iter = progn_tok->operands->link->operands;
+    TOKEN link_iter_next = link_iter->link;
+
+    while(link_iter_next != NULL) {
+      link_iter = link_iter_next;
+      link_iter_next = link_iter_next->link;
+    }
+
+    link_iter->link = progn_tok->operands->link->link;
+    progn_tok->operands->link->link = NULL;
+
+    progn_tok->operands->link = progn_tok->operands->link->operands;
+
+    is_optimized = 1;
+  }
+
+  return is_optimized ? progn_tok : NULL;
+}
+
 TOKEN makefor(int sign, TOKEN tok, TOKEN asg, TOKEN tokb, TOKEN endexpr,
               TOKEN tokc, TOKEN statement){
 
@@ -653,6 +723,13 @@ TOKEN makefor(int sign, TOKEN tok, TOKEN asg, TOKEN tokb, TOKEN endexpr,
   count_assign->link = makegoto(label->operands->intval);
 
 
+  // optimize
+
+  TOKEN opt_return = optimize_progn(if_token->operands->link);
+  if (opt_return) {
+    if_token->operands->link = opt_return;
+  }
+
   if (DEBUG) {
     printf("makefor\n");
     dbugprinttok(tok);
@@ -710,6 +787,28 @@ TOKEN makefuncall(TOKEN tok, TOKEN fn, TOKEN args) {
 
   //return type should be in tok.
   tok->symtype = fn_sym->datatype->datatype;
+
+  // coerce write function
+  if(strcmp(fn->stringval, "write") == 0
+      || strcmp(fn->stringval, "writeln") == 0) {
+    int pos_idx = strlen(fn->stringval);
+
+    if(args->symtype == NULL && args->tokentype != STRINGTOK) {
+      args->symtype = searchst(args->stringval);
+      if(args->symtype) {
+        args->symtype = args->symtype->datatype;
+      }
+    }
+
+    if(args->symtype &&
+        strcmp(args->symtype->namestring, "integer") == 0) {
+      fn->stringval[pos_idx] = 'i';
+    } else if (args->symtype &&
+        strcmp(args->symtype->namestring, "real") == 0) {
+      fn->stringval[pos_idx] = 'f';
+    }
+  }
+
 
   if (DEBUG) {
     printf("makefuncall\n");
@@ -838,7 +937,6 @@ TOKEN makerepeat(TOKEN tok, TOKEN statements, TOKEN tokb, TOKEN expr) {
     dbugprinttok(empty_progn);
     dbugprinttok(empty_progn->link); // GOTO
   }
-
 
   return label;
 }
@@ -1137,6 +1235,53 @@ int find_offset(SYMBOL first_field,
   return 0;
 }
 
+// iterate whole list and find 
+TOKEN optimize_aref(TOKEN list) {
+  if (list == NULL) {
+    return NULL;
+  }
+
+  if (list->operands) {
+    TOKEN next = list->operands;
+    if ( (list->tokentype == OPERATOR && list->whichval == AREFOP)
+          && (next->tokentype == OPERATOR && next->whichval == AREFOP) ) {
+      // Optimize!!
+
+      // sum offsets
+      TOKEN num_tok = next->operands->link;
+
+      while(num_tok->tokentype != NUMBERTOK) {
+        // When the index is not a constant.
+        num_tok = num_tok->operands;
+      }
+
+      num_tok->intval += next->link->intval;
+      free(next->link);
+      next->link = list->link;
+
+
+      // change list to next
+      next->symtype = list->symtype;
+      next->symentry = list->symentry;
+      free(list);
+      list = next;
+
+      // iterate
+      list = optimize_aref(list);
+    } else{
+      // iterate
+      list->operands = optimize_aref(list->operands);
+    }
+  }
+
+  if (list->link) {
+    // iterate
+    list->link = optimize_aref(list->link);
+  }
+
+  return list;
+}
+
 /* reducedot handles a record reference.
    dot is a (now) unused token that is recycled. */
 TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
@@ -1156,8 +1301,12 @@ TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
 
     var->symtype = iter;
   }
+
   SYMBOL rec_sym = var->symtype;
-  SYMBOL iter_field = rec_sym->datatype->datatype;
+  while(rec_sym->kind != RECORDSYM) {
+    rec_sym = rec_sym->datatype;
+  }
+  SYMBOL iter_field = rec_sym->datatype;
 
   int sub_offset = 0;
   SYMBOL sub_field_type = NULL;
@@ -1189,7 +1338,7 @@ TOKEN reducedot(TOKEN var, TOKEN dot, TOKEN field) {
 
   var->link = offset_tok;
 
-  return aref;
+  return optimize_aref(aref);
 }
 
 
@@ -1245,15 +1394,210 @@ TOKEN nil_to_zero(TOKEN nil) {
   return nil;
 }
 
+/* arrayref processes an array reference a[i]
+   subs is a list of subscript expressions.
+   tok and tokb are (now) unused tokens that are recycled. */
+TOKEN arrayref(TOKEN arr, TOKEN aref, TOKEN subs, TOKEN tokb) {
+  arr->symtype = searchst(arr->stringval);
+  SYMBOL subrange = arr->symtype->datatype;
+
+  free(aref);
+  aref = NULL;
+
+  TOKEN next_aref = arr;
+
+  TOKEN iter_subs = subs;
+  SYMBOL type_iter = subrange;
+
+  while(iter_subs != NULL) {
+    aref = (TOKEN)talloc();
+    aref->tokentype = OPERATOR;
+    aref->whichval = AREFOP;
+    aref->operands = next_aref;
+    aref->symtype = next_aref->symtype;
+
+    int unit_size = type_iter->datatype->size;
+
+    if (iter_subs->tokentype == NUMBERTOK) {
+      // Just add number.
+      TOKEN tok_number = (TOKEN)talloc();
+      tok_number->tokentype = NUMBERTOK;
+      tok_number->basicdt = INTEGER;
+      tok_number->intval = (iter_subs->intval - type_iter->lowbound) 
+                             * unit_size;
+
+      aref->operands->link = tok_number;
+    } else {
+      // Operations for variable index.
+      TOKEN plus_tok = (TOKEN)talloc();
+      plus_tok->tokentype = OPERATOR;
+      plus_tok->whichval = PLUSOP;
+      aref->operands->link = plus_tok;
+
+      TOKEN num_neg_tok = (TOKEN)talloc();
+      num_neg_tok->tokentype = NUMBERTOK;
+      num_neg_tok->basicdt = INTEGER;
+      num_neg_tok->intval = -unit_size;
+
+      plus_tok->operands = num_neg_tok;
+
+      TOKEN times_op_tok = (TOKEN)talloc();
+      times_op_tok->tokentype = OPERATOR;
+      times_op_tok->whichval = TIMESOP;
+      num_neg_tok->link = times_op_tok;
+
+      TOKEN num_pos_tok = (TOKEN)talloc();
+      num_pos_tok->tokentype = NUMBERTOK;
+      num_pos_tok->basicdt = INTEGER;
+      num_pos_tok->intval = unit_size;
+      times_op_tok->operands = num_pos_tok;
+
+      TOKEN var_idx = (TOKEN)talloc();
+      memcpy(var_idx, iter_subs, sizeof(*var_idx));
+      var_idx->link = NULL;
+
+      num_pos_tok->link = var_idx;
+    }
+    
+    iter_subs = iter_subs->link;
+    type_iter = type_iter->datatype;
+    next_aref = aref;
+  }
+
+
+  return optimize_aref(aref);
+  /* return aref; */
+}
 
 /* arrayref processes an array reference a[i]
    subs is a list of subscript expressions.
    tok and tokb are (now) unused tokens that are recycled. */
-TOKEN arrayref(TOKEN arr, TOKEN tok, TOKEN subs, TOKEN tokb) {
-  // TODO
-  return arr;
+TOKEN arrayref_old(TOKEN arr, TOKEN tok, TOKEN subs, TOKEN tokb) {
+  arr->symtype = searchst(arr->stringval);
+  SYMBOL subrange = arr->symtype->datatype;
+
+  int unit_size = subrange->datatype->size;
+
+  memset(tok, 0, sizeof(*tok));
+  tok->tokentype = OPERATOR;
+  tok->whichval = AREFOP;
+  tok->operands = arr;
+  tok->symtype = arr->symtype;
+
+  TOKEN iter_subs = subs;
+  TOKEN oper_iter = tok;
+
+  while(iter_subs != NULL) {
+    TOKEN new_tok = (TOKEN)talloc();
+
+    if(iter_subs->tokentype == NUMBERTOK) {
+      // index is a constant
+      new_tok->tokentype = NUMBERTOK;
+      new_tok->basicdt = INTEGER;
+      new_tok->intval = (iter_subs->intval - subrange->lowbound) * unit_size;
+
+      oper_iter->operands->link = new_tok;
+    } else {
+      new_tok->tokentype = OPERATOR;
+      new_tok->whichval = PLUSOP;
+      oper_iter->operands->link = new_tok;
+
+      TOKEN num_minus_tok = (TOKEN)talloc();
+      num_minus_tok->tokentype = NUMBERTOK;
+      num_minus_tok->basicdt = INTEGER;
+      num_minus_tok->intval = -unit_size;
+
+      new_tok->operands = num_minus_tok;
+
+      TOKEN times_op_tok = (TOKEN)talloc();
+      times_op_tok->tokentype = OPERATOR;
+      times_op_tok->whichval = TIMESOP;
+      num_minus_tok->link = times_op_tok;
+
+      TOKEN num_plus_tok = (TOKEN)talloc();
+      num_plus_tok->tokentype = NUMBERTOK;
+      num_plus_tok->basicdt = INTEGER;
+      num_plus_tok->intval = unit_size;
+      times_op_tok->operands = num_plus_tok;
+
+      num_plus_tok->link = iter_subs;
+    }
+    iter_subs = iter_subs->link;
+  }
+  return tok;
 }
 
+/*
+while c do s
+(PROGN (LABEL j)
+       (IF c (PROGN s (GOTO j))))
+*/
+
+/* makewhile makes structures for a while statement.
+   tok and tokb are (now) unused tokens that are recycled. */
+TOKEN makewhile(TOKEN progn1, TOKEN expr, TOKEN progn2, TOKEN statement) {
+  memset(progn1, 0, sizeof(*progn1));
+  progn1->tokentype = OPERATOR;
+  progn1->whichval = PROGNOP;
+  memcpy(progn2, progn1, sizeof(*progn2));
+
+  TOKEN label = makelabel();
+  progn1->operands = label;
+
+  TOKEN if_tok = (TOKEN)talloc();
+  if_tok->tokentype = OPERATOR;
+  if_tok->whichval = IFOP;
+
+  label->link = if_tok;
+  if_tok->operands = expr;
+
+  expr->link = progn2;
+  progn2->operands = statement;
+
+  TOKEN goto_tok = (TOKEN)talloc();
+  goto_tok->tokentype = OPERATOR;
+  goto_tok->whichval = GOTOOP;
+
+  TOKEN num_label = (TOKEN)talloc();
+  memcpy(num_label, label->operands, sizeof(*num_label));
+
+  goto_tok->operands = num_label;
+
+  statement->link = goto_tok;
+
+  TOKEN opt_return = optimize_progn(progn2);
+  if (opt_return) {
+    expr->link = opt_return;
+  }
+
+  return progn1;
+}
+
+/* dogoto is the action for a goto statement.
+   tok is a (now) unused token that is recycled. */
+TOKEN dogoto(TOKEN tok, TOKEN labeltok) {
+  memset(tok, 0, sizeof(*tok));
+  tok->tokentype = OPERATOR;
+  tok->whichval = GOTOOP;
+
+  int num_inner_label;
+  for ( num_inner_label = 0;
+        num_inner_label < MAX_LABEL;
+        num_inner_label++ ) {
+    if (labels[num_inner_label] == labeltok->intval) {
+      break;
+    }
+  }
+
+  TOKEN inner_label_tok = (TOKEN)talloc();
+  inner_label_tok->tokentype = NUMBERTOK;
+  inner_label_tok->basicdt = INTEGER;
+  inner_label_tok->intval = num_inner_label;
+
+  tok->operands = inner_label_tok;
+
+  return tok;
+}
 
 
 int wordaddress(int n, int wordsize)

@@ -173,7 +173,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
              |  ARRAY LBRACKET simple_type_list RBRACKET OF type
                                             { $$ = instarray($3, $6); }
              |  RECORD field_list END       { $$ = instrec($1, $2); }
-             |  POINT IDENTIFIER            { $$ = instpoint($1, $2); /*TODO*/}
+             |  POINT IDENTIFIER            { $$ = instpoint($1, $2); }
              ;
   plus_op    :  PLUS | MINUS | OR              
              ;
@@ -191,7 +191,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   expr_list  :  expression COMMA expr_list  { $$ = cons($1, $3); }
              |  expression
              ;
-  variable   :  IDENTIFIER    
+  variable   :  IDENTIFIER        
              |  variable LBRACKET expr_list RBRACKET
                                            { $$ = arrayref($1, $2, $3, $4); }
              |  variable DOT IDENTIFIER    { $$ = reducedot($1, $2, $3); }
@@ -227,7 +227,7 @@ program    :  PROGRAM IDENTIFIER LPAREN id_list RPAREN SEMICOLON lblock DOT
   tblock     :  TYPE tdef_list vblock { $$ = $3; }
              |  vblock
              ;
-  tdef       :  IDENTIFIER EQ type           { insttype($1, $3); /*TODO*/}
+  tdef       :  IDENTIFIER EQ type           { insttype($1, $3); }
              ;
   tdef_list  :  tdef SEMICOLON tdef_list
              |                    { $$ = NULL; }
@@ -304,14 +304,18 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
     // operator's return type.
     if(!lhs_sym && lhs->basicdt == INTEGER) {
       op->symtype = int_sym;
+      op->basicdt = INTEGER;
     } else if (!lhs_sym && lhs->basicdt == REAL) {
       op->symtype = real_sym;
+      op->basicdt = REAL;
     } else if (lhs_sym 
                 && lhs_sym == int_sym || lhs_sym->datatype == int_sym) {
       op->symtype = int_sym;
+      op->basicdt = INTEGER;
     } else if (lhs_sym 
                 && lhs_sym == real_sym || lhs_sym->datatype == real_sym) {
       op->symtype = real_sym;
+      op->basicdt = REAL;
     }
 
     // Coercion Case.
@@ -365,6 +369,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
+            coerce_tok->basicdt = REAL;
 
             coerce_tok->operands = lhs;
             coerce_tok->link = lhs->link;
@@ -400,6 +405,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
+            coerce_tok->basicdt = REAL;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
@@ -418,6 +424,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
+            coerce_tok->basicdt = REAL;
 
             coerce_tok->operands = lhs;
             coerce_tok->link = lhs->link;
@@ -431,6 +438,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
+            coerce_tok->basicdt = REAL;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
@@ -456,6 +464,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             rhs->basicdt = INTEGER;
             rhs->intval = rhs->realval;
             op->symtype = int_sym;
+            op->basicdt = INTEGER;
 
           // rhs is not a constant
           } else if (rhs_sym == real_sym
@@ -464,11 +473,13 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FIXOP;
             coerce_tok->symtype = int_sym;
+            coerce_tok->basicdt = INTEGER;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
             op->symtype = int_sym;
+            op->basicdt = INTEGER;
           }
 
         // left is real and right is integer
@@ -479,6 +490,7 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             rhs->basicdt = REAL;
             rhs->realval = rhs->intval;
             op->symtype = real_sym;
+            op->basicdt = REAL;
 
           // rhs is not a constant
           } else if (rhs_sym == int_sym
@@ -487,11 +499,13 @@ TOKEN binop(TOKEN op, TOKEN lhs, TOKEN rhs)        /* reduce binary operator */
             coerce_tok->tokentype = OPERATOR;
             coerce_tok->whichval = FLOATOP;
             coerce_tok->symtype = real_sym;
+            coerce_tok->basicdt = REAL;
 
             coerce_tok->operands = rhs;
             lhs->link = coerce_tok;
 
             op->symtype = real_sym;
+            op->basicdt = REAL;
           }
         }
 
@@ -618,6 +632,9 @@ void instvars(TOKEN idlist, TOKEN typetok) {
 }
 
 TOKEN optimize_progn(TOKEN progn_tok) {
+  // TODO
+  return progn_tok;
+  
   int is_optimized = 0;
   // optimize
   if (progn_tok->operands->tokentype == OPERATOR
@@ -983,6 +1000,7 @@ void insttype(TOKEN typename, TOKEN typetok) {
   typesym->kind = TYPESYM;
   typesym->datatype = typetok->symtype;
   typesym->size = typesym->datatype->size;
+  typesym->basicdt = typetok->basicdt;
 }
 
 
@@ -995,6 +1013,7 @@ TOKEN instpoint(TOKEN tok, TOKEN typename) {
   pointsym->size = alignsize(pointsym);
 
   tok->symtype = pointsym;
+  tok->basicdt = POINTER;
   return tok;
 }
 
@@ -1619,7 +1638,5 @@ int main(void)          /*  */
     if (DEBUG & DB_PARSERES) dbugprinttok(parseresult);
     ppexpr(parseresult);           /* Pretty-print the result tree */
     /* uncomment following to call code generator. */
-     /* 
     gencode(parseresult, blockoffs[blocknumber], labelnumber);
- */
   }

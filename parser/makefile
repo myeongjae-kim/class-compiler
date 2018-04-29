@@ -4,8 +4,15 @@
 #
 # token.h is assumed to be a local file because on some machines
 # or yacc versions tokenb.h must be used instead (renamed token.h).
+#
+
+# To compile your file codegen.c --> compiler
+#      using your files lexan.l and parse.y
+compiler: y.tab.o lex.yy.o printtoken.o pprint.o symtab.o codegen.o genasm.o
+	cc -g -o compiler y.tab.o lex.yy.o printtoken.o pprint.o symtab.o \
+             codegen.o genasm.o
 clean:
-	rm parser lexer y.output *.o *.yy.c *.tab.c
+	rm compiler parser lexer y.output *.o *.yy.c *.tab.c
 
 # To compile starter file lex1.c --> lex1
 # 
@@ -58,11 +65,6 @@ comp1y: y.tab.o lex.yy.o printtoken.o pprint.o symtab.o codgen.o genasm.o
 	cc -g -o comp1y y.tab.o lex.yy.o printtoken.o pprint.o symtab.o codgen.o \
             genasm.o
 
-# To compile your file codegen.c --> compiler
-#      using your files lexan.l and parse.y
-compiler: y.tab.o lex.yy.o printtoken.o pprint.o symtab.o codegen.o genasm.o
-	cc -g -o compiler y.tab.o lex.yy.o printtoken.o pprint.o symtab.o \
-             codegen.o genasm.o
 
 # To compile starter file codgen.c --> comp1c
 #      using your files lexanc.c and parsc.c
